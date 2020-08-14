@@ -23,6 +23,8 @@ SOURCES += \
     ffplayer.cpp \
     format.cpp \
     frame.cpp
+
+LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 ```
 
 2. Register the QML type before using
