@@ -3,9 +3,11 @@ FFmpeg based real time QML player
 
 ### To use in your project, you must follow these steps:
 
-1. Include the source files in your project
+1. Setup your project
 
 ```
+QT += quick multimedia
+
 HEADERS += \
     audioqueue.h \
     decoder.h \
@@ -21,6 +23,8 @@ SOURCES += \
     ffplayer.cpp \
     format.cpp \
     frame.cpp
+
+LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 ```
 
 2. Register the QML type before using
@@ -29,6 +33,8 @@ SOURCES += \
 #include "ffplayer.h"
 
 qmlRegisterType<FFPlayer>("QmlAV.Multimedia", 1, 0, "FFPlayer");
+
+...
 ```
 
 3. And use this in your QML code
@@ -36,7 +42,7 @@ qmlRegisterType<FFPlayer>("QmlAV.Multimedia", 1, 0, "FFPlayer");
 ```
 import QtQuick 2.0
 import QtMultimedia 5.0
-import CCTV_Viewer.Multimedia 1.0
+import QmlAV.Multimedia 1.0
 
 Item {
     VideoOutput {
