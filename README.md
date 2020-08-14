@@ -9,20 +9,20 @@ FFmpeg based real time QML player
 QT += quick multimedia
 
 HEADERS += \
-    audioqueue.h \
-    decoder.h \
-    demuxer.h \
-    ffplayer.h \
-    format.h \
-    frame.h
+    qmlav/src/audioqueue.h \
+    qmlav/src/decoder.h \
+    qmlav/src/demuxer.h \
+    qmlav/src/ffplayer.h \
+    qmlav/src/format.h \
+    qmlav/src/frame.h
 
 SOURCES += \
-    audioqueue.cpp \
-    decoder.cpp \
-    demuxer.cpp \
-    ffplayer.cpp \
-    format.cpp \
-    frame.cpp
+    qmlav/src/audioqueue.cpp \
+    qmlav/src/decoder.cpp \
+    qmlav/src/demuxer.cpp \
+    qmlav/src/ffplayer.cpp \
+    qmlav/src/format.cpp \
+    qmlav/src/frame.cpp
 
 LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 ```
