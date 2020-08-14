@@ -29,6 +29,8 @@ SOURCES += \
 #include "ffplayer.h"
 
 qmlRegisterType<FFPlayer>("QmlAV.Multimedia", 1, 0, "FFPlayer");
+
+...
 ```
 
 3. And use this in your QML code
@@ -36,7 +38,7 @@ qmlRegisterType<FFPlayer>("QmlAV.Multimedia", 1, 0, "FFPlayer");
 ```
 import QtQuick 2.0
 import QtMultimedia 5.0
-import CCTV_Viewer.Multimedia 1.0
+import QmlAV.Multimedia 1.0
 
 Item {
     VideoOutput {
