@@ -3,9 +3,11 @@ FFmpeg based real time QML player
 
 ### To use in your project, you must follow these steps:
 
-1. Include the source files in your project
+1. Setup your project
 
 ```
+QT += quick multimedia
+
 HEADERS += \
     audioqueue.h \
     decoder.h \
