@@ -30,7 +30,7 @@ LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 2. Register the QML type before using
 
 ```
-#include "ffplayer.h"
+#include "qmlav/src/ffplayer.h"
 
 qmlRegisterType<FFPlayer>("QmlAV.Multimedia", 1, 0, "FFPlayer");
 
