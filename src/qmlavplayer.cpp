@@ -175,7 +175,7 @@ void QmlAVPlayer::stateMachine()
                 setHasVideo(true);
             } else {
                 QTextStream cerr(stderr);
-                cerr << "Invalid surface format!" << Qt::endl;
+                cerr << "Invalid surface format!\n";
                 stop();
             }
         }
