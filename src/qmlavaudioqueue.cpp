@@ -1,32 +1,32 @@
-#include "audioqueue.h"
+#include "qmlavaudioqueue.h"
 
-AudioQueue::AudioQueue(QObject *parent)
+QmlAVAudioQueue::QmlAVAudioQueue(QObject *parent)
     : QIODevice(parent)
 {
     open(QIODevice::ReadOnly);
 }
 
-AudioQueue::~AudioQueue()
+QmlAVAudioQueue::~QmlAVAudioQueue()
 {
     close();
 }
 
-qint64 AudioQueue::bytesAvailable() const
+qint64 QmlAVAudioQueue::bytesAvailable() const
 {
     return m_buffer.size() + QIODevice::bytesAvailable();
 }
 
-bool AudioQueue::isSequential() const
+bool QmlAVAudioQueue::isSequential() const
 {
     return true;
 }
 
-void AudioQueue::push(const std::shared_ptr<AudioFrame> frame)
+void QmlAVAudioQueue::push(const std::shared_ptr<QmlAVAudioFrame> frame)
 {
     m_buffer.append(frame->data(), frame->dataSize());
 }
 
-qint64 AudioQueue::readData(char *data, qint64 maxSize)
+qint64 QmlAVAudioQueue::readData(char *data, qint64 maxSize)
 {
     qint64 size = qMin(static_cast<qint64>(m_buffer.size()), maxSize);
     memcpy(data, m_buffer.constData(), size);
@@ -34,7 +34,7 @@ qint64 AudioQueue::readData(char *data, qint64 maxSize)
     return size;
 }
 
-qint64 AudioQueue::writeData(const char *data, qint64 maxSize)
+qint64 QmlAVAudioQueue::writeData(const char *data, qint64 maxSize)
 {
     Q_UNUSED(data);
     Q_UNUSED(maxSize);

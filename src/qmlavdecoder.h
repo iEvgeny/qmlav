@@ -1,24 +1,24 @@
-#ifndef AVDECODER_H
-#define AVDECODER_H
+#ifndef QMLAVDECODER_H
+#define QMLAVDECODER_H
 
 #include <QtCore>
 #include <QVideoSurfaceFormat>
 #include <QAudioOutput>
 
-#include "frame.h"
+#include "qmlavframe.h"
 
 extern "C" {
     #include <libavformat/avformat.h>
     #include <libavcodec/avcodec.h>
 }
 
-class Decoder : public QObject
+class QmlAVDecoder : public QObject
 {
     Q_OBJECT
 
 public:
-    Decoder(QObject *parent = nullptr);
-    virtual ~Decoder();
+    QmlAVDecoder(QObject *parent = nullptr);
+    virtual ~QmlAVDecoder();
 
     bool openCodec(AVStream *stream);
     void closeCodec();
@@ -32,12 +32,12 @@ public:
     bool decode(const AVPacket &packet);
 
 signals:
-    void frameFinished(const std::shared_ptr<Frame> frame);
+    void frameFinished(const std::shared_ptr<QmlAVFrame> frame);
 
 protected:
     qint64 startPts() const;
     double framePts();
-    virtual std::shared_ptr<Frame> frame() = 0;
+    virtual std::shared_ptr<QmlAVFrame> frame() = 0;
 
 private:
     double m_ptsClock; // Equivalent to the PTS of the current frame
@@ -46,40 +46,40 @@ private:
     AVCodecContext *m_avCodecCtx;
     AVFrame *m_avFrame;
 
-    friend class VideoDecoder;
-    friend class AudioDecoder;
+    friend class QmlAVVideoDecoder;
+    friend class QmlAVAudioDecoder;
 };
-Q_DECLARE_METATYPE(std::shared_ptr<Frame>)
+Q_DECLARE_METATYPE(std::shared_ptr<QmlAVFrame>)
 
-class VideoDecoder : public Decoder
+class QmlAVVideoDecoder : public QmlAVDecoder
 {
     Q_OBJECT
 
 public:
-    VideoDecoder(QObject *parent = nullptr);
+    QmlAVVideoDecoder(QObject *parent = nullptr);
 
     void setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats);
     QVideoSurfaceFormat videoFormat() const;
 
 protected:
     QSize pixelAspectRatio() const;
-    virtual std::shared_ptr<Frame> frame() override;
+    virtual std::shared_ptr<QmlAVFrame> frame() override;
 
 private:
     QVideoFrame::PixelFormat m_surfacePixelFormat;
 };
 
-class AudioDecoder : public Decoder
+class QmlAVAudioDecoder : public QmlAVDecoder
 {
     Q_OBJECT
 
 public:
-    AudioDecoder(QObject *parent = nullptr);
+    QmlAVAudioDecoder(QObject *parent = nullptr);
 
     QAudioFormat audioFormat();
 
 protected:
-    virtual std::shared_ptr<Frame> frame() override;
+    virtual std::shared_ptr<QmlAVFrame> frame() override;
 };
 
-#endif // AVDECODER_H
+#endif // QMLAVDECODER_H

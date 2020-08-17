@@ -1,6 +1,6 @@
-#include "ffplayer.h"
+#include "qmlavplayer.h"
 
-FFPlayer::FFPlayer(QObject *parent)
+QmlAVPlayer::QmlAVPlayer(QObject *parent)
     : QObject(parent),
       m_demuxer(nullptr),
       m_videoSurface(nullptr),
@@ -19,12 +19,12 @@ FFPlayer::FFPlayer(QObject *parent)
     m_audioDeviceInfo = QAudioDeviceInfo::defaultOutputDevice();
 
     m_playTimer.setSingleShot(true);
-    connect(&m_playTimer, &QTimer::timeout, this, &FFPlayer::play);
+    connect(&m_playTimer, &QTimer::timeout, this, &QmlAVPlayer::play);
 
     m_thread.start();
 }
 
-FFPlayer::~FFPlayer()
+QmlAVPlayer::~QmlAVPlayer()
 {
     stop();
 
@@ -33,14 +33,14 @@ FFPlayer::~FFPlayer()
     m_thread.wait();
 }
 
-void FFPlayer::play()
+void QmlAVPlayer::play()
 {
     if (load()) {
         emit demuxerStart();
     }
 }
 
-void FFPlayer::stop()
+void QmlAVPlayer::stop()
 {
     if (m_demuxer) {
         m_demuxer->requestInterruption();
@@ -64,7 +64,7 @@ void FFPlayer::stop()
     }
 }
 
-void FFPlayer::setVideoSurface(QAbstractVideoSurface *surface)
+void QmlAVPlayer::setVideoSurface(QAbstractVideoSurface *surface)
 {
     if (m_videoSurface != surface) {
         stop();
@@ -77,7 +77,7 @@ void FFPlayer::setVideoSurface(QAbstractVideoSurface *surface)
     }
 }
 
-void FFPlayer::setAutoLoad(bool autoLoad)
+void QmlAVPlayer::setAutoLoad(bool autoLoad)
 {
     if (m_autoLoad == autoLoad)
         return;
@@ -90,7 +90,7 @@ void FFPlayer::setAutoLoad(bool autoLoad)
     emit autoLoadChanged(m_autoLoad);
 }
 
-void FFPlayer::setAutoPlay(bool autoPlay)
+void QmlAVPlayer::setAutoPlay(bool autoPlay)
 {
     if (m_autoPlay == autoPlay)
         return;
@@ -103,7 +103,7 @@ void FFPlayer::setAutoPlay(bool autoPlay)
     emit autoPlayChanged(m_autoPlay);
 }
 
-void FFPlayer::setSource(QUrl source)
+void QmlAVPlayer::setSource(QUrl source)
 {
     if (m_source == source)
         return;
@@ -120,7 +120,7 @@ void FFPlayer::setSource(QUrl source)
     emit sourceChanged(m_source);
 }
 
-void FFPlayer::setVolume(const QVariant &volume)
+void QmlAVPlayer::setVolume(const QVariant &volume)
 {
     if (m_volume == volume)
         return;
@@ -136,23 +136,23 @@ void FFPlayer::setVolume(const QVariant &volume)
     emit volumeChanged(m_volume);
 }
 
-bool FFPlayer::load()
+bool QmlAVPlayer::load()
 {
     if (!m_demuxer && m_source.isValid()) {
-        m_demuxer = new Demuxer();
+        m_demuxer = new QmlAVDemuxer();
         m_demuxer->moveToThread(&m_thread);
         connect(&m_thread, &QThread::finished, m_demuxer, &QObject::deleteLater);
 
-        connect(this, &FFPlayer::demuxerLoad, m_demuxer, &Demuxer::load);
-        connect(this, &FFPlayer::demuxerSetSupportedPixelFormats, m_demuxer, &Demuxer::setSupportedPixelFormats);
-        connect(this, &FFPlayer::demuxerStart, m_demuxer, &Demuxer::run);
-        connect(this, &FFPlayer::demuxerSetHandledTime, m_demuxer, &Demuxer::setHandledTime);
+        connect(this, &QmlAVPlayer::demuxerLoad, m_demuxer, &QmlAVDemuxer::load);
+        connect(this, &QmlAVPlayer::demuxerSetSupportedPixelFormats, m_demuxer, &QmlAVDemuxer::setSupportedPixelFormats);
+        connect(this, &QmlAVPlayer::demuxerStart, m_demuxer, &QmlAVDemuxer::run);
+        connect(this, &QmlAVPlayer::demuxerSetHandledTime, m_demuxer, &QmlAVDemuxer::setHandledTime);
 
-        connect(m_demuxer, &Demuxer::frameFinished, this, &FFPlayer::frameHandler);
-        connect(m_demuxer, &Demuxer::videoFormatChanged, this, &FFPlayer::setVideoFormat);
-        connect(m_demuxer, &Demuxer::audioFormatChanged, this, &FFPlayer::setAudioFormat);
-        connect(m_demuxer, &Demuxer::playbackStateChanged, this, &FFPlayer::setPlaybackState);
-        connect(m_demuxer, &Demuxer::statusChanged, this, &FFPlayer::setStatus);
+        connect(m_demuxer, &QmlAVDemuxer::frameFinished, this, &QmlAVPlayer::frameHandler);
+        connect(m_demuxer, &QmlAVDemuxer::videoFormatChanged, this, &QmlAVPlayer::setVideoFormat);
+        connect(m_demuxer, &QmlAVDemuxer::audioFormatChanged, this, &QmlAVPlayer::setAudioFormat);
+        connect(m_demuxer, &QmlAVDemuxer::playbackStateChanged, this, &QmlAVPlayer::setPlaybackState);
+        connect(m_demuxer, &QmlAVDemuxer::statusChanged, this, &QmlAVPlayer::setStatus);
 
         emit demuxerLoad(m_source, m_ffmpegFormatOptions);
         if (m_videoSurface) {
@@ -165,7 +165,7 @@ bool FFPlayer::load()
     return false;
 }
 
-void FFPlayer::stateMachine()
+void QmlAVPlayer::stateMachine()
 {
     if (m_playbackState == QMediaPlayer::PlayingState && m_status == QMediaPlayer::BufferedMedia) {
         if (m_videoSurface && !m_videoSurface->isActive() && m_videoFormat.isValid()) {
@@ -175,7 +175,7 @@ void FFPlayer::stateMachine()
                 setHasVideo(true);
             } else {
                 QTextStream cerr(stderr);
-                cerr << "Invalid surface format!" << endl;
+                cerr << "Invalid surface format!" << Qt::endl;
                 stop();
             }
         }
@@ -210,24 +210,24 @@ void FFPlayer::stateMachine()
     }
 }
 
-void FFPlayer::frameHandler(const std::shared_ptr<Frame> frame)
+void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
 {
     emit demuxerSetHandledTime(frame->startTime());
 
     if (m_playbackState == QMediaPlayer::PlayingState) {
-        if (frame->type() == Frame::TypeVideo) {
+        if (frame->type() == QmlAVFrame::TypeVideo) {
             if (m_videoSurface && frame->isValid()) {
-                m_videoSurface->present(std::static_pointer_cast<VideoFrame>(frame)->toVideoFrame());
+                m_videoSurface->present(std::static_pointer_cast<QmlAVVideoFrame>(frame)->toVideoFrame());
             }
-        } else if (frame->type() == Frame::TypeAudio) {
+        } else if (frame->type() == QmlAVFrame::TypeAudio) {
             if (m_audioOutput && frame->isValid()) {
-                m_audioQueue.push(std::static_pointer_cast<AudioFrame>(frame));
+                m_audioQueue.push(std::static_pointer_cast<QmlAVAudioFrame>(frame));
             }
         }
     }
 }
 
-void FFPlayer::setVideoFormat(const QVideoSurfaceFormat &format)
+void QmlAVPlayer::setVideoFormat(const QVideoSurfaceFormat &format)
 {
     if (m_videoFormat == format) {
         return;
@@ -238,7 +238,7 @@ void FFPlayer::setVideoFormat(const QVideoSurfaceFormat &format)
     stateMachine();
 }
 
-void FFPlayer::setAudioFormat(const QAudioFormat &format)
+void QmlAVPlayer::setAudioFormat(const QAudioFormat &format)
 {
     if (m_audioFormat == format) {
         return;
@@ -247,7 +247,7 @@ void FFPlayer::setAudioFormat(const QAudioFormat &format)
     m_audioFormat = format;
 }
 
-void FFPlayer::setPlaybackState(const QMediaPlayer::State state)
+void QmlAVPlayer::setPlaybackState(const QMediaPlayer::State state)
 {
     if (m_playbackState == state) {
         return;
@@ -262,7 +262,7 @@ void FFPlayer::setPlaybackState(const QMediaPlayer::State state)
     emit playbackStateChanged(m_playbackState);
 }
 
-void FFPlayer::setStatus(const QMediaPlayer::MediaStatus status)
+void QmlAVPlayer::setStatus(const QMediaPlayer::MediaStatus status)
 {
     if (m_status == status) {
         return;
@@ -275,7 +275,7 @@ void FFPlayer::setStatus(const QMediaPlayer::MediaStatus status)
     emit statusChanged(m_status);
 }
 
-void FFPlayer::setHasVideo(bool hasVideo)
+void QmlAVPlayer::setHasVideo(bool hasVideo)
 {
     if (m_hasVideo == hasVideo) {
         return;
@@ -286,7 +286,7 @@ void FFPlayer::setHasVideo(bool hasVideo)
     emit hasVideoChanged(m_hasVideo);
 }
 
-void FFPlayer::setHasAudio(bool hasAudio)
+void QmlAVPlayer::setHasAudio(bool hasAudio)
 {
     if (m_hasAudio == hasAudio) {
         return;

@@ -1,5 +1,5 @@
-#ifndef AVDEMUXER_H
-#define AVDEMUXER_H
+#ifndef QMLAVDEMUXER_H
+#define QMLAVDEMUXER_H
 
 #include <QtCore>
 #include <QVideoFrame>
@@ -7,7 +7,7 @@
 #include <QVideoSurfaceFormat>
 #include <QAudioOutput>
 
-#include "decoder.h"
+#include "qmlavdecoder.h"
 
 extern "C" {
     #include <libavformat/avformat.h>
@@ -16,12 +16,12 @@ extern "C" {
     #include <libavdevice/avdevice.h>
 }
 
-class Demuxer;
+class QmlAVDemuxer;
 
-class InterruptCallback : public AVIOInterruptCB
+class QmlAVInterruptCallback : public AVIOInterruptCB
 {
 public:
-    InterruptCallback(qint64 timeout = 30000);
+    QmlAVInterruptCallback(qint64 timeout = 30000);
 
     void startTimer();
     void stopTimer() { m_timer.invalidate(); }
@@ -36,13 +36,13 @@ private:
     std::atomic<bool> m_interruptionRequested;
 };
 
-class Demuxer : public QObject
+class QmlAVDemuxer : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit Demuxer(QObject *parent = nullptr);
-    virtual ~Demuxer();
+    explicit QmlAVDemuxer(QObject *parent = nullptr);
+    virtual ~QmlAVDemuxer();
 
     void requestInterruption();
 
@@ -57,7 +57,7 @@ signals:
     void audioFormatChanged(const QAudioFormat &format);
     void playbackStateChanged(const QMediaPlayer::State state);
     void statusChanged(const QMediaPlayer::MediaStatus status);
-    void frameFinished(const std::shared_ptr<Frame> frame);
+    void frameFinished(const std::shared_ptr<QmlAVFrame> frame);
 
 protected:
     bool isRealtime(QUrl url);
@@ -71,11 +71,11 @@ private:
     qint64 m_lastTime;
     qint64 m_handledTime;
     AVFormatContext *m_formatCtx;
-    InterruptCallback m_interruptCallback;
+    QmlAVInterruptCallback m_interruptCallback;
     QList<AVStream*> m_videoStreams, m_audioStreams;
     AVPacket m_packet;
-    VideoDecoder m_videoDecoder;
-    AudioDecoder m_audioDecoder;
+    QmlAVVideoDecoder m_videoDecoder;
+    QmlAVAudioDecoder m_audioDecoder;
 
     QMediaPlayer::State m_playbackState;
     QMediaPlayer::MediaStatus m_status;
@@ -83,4 +83,4 @@ private:
     std::atomic<bool> m_interruptionRequested;
 };
 
-#endif // AVDEMUXER_H
+#endif // QMLAVDEMUXER_H

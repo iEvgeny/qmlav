@@ -1,6 +1,6 @@
-#include "decoder.h"
+#include "qmlavdecoder.h"
 
-Decoder::Decoder(QObject *parent)
+QmlAVDecoder::QmlAVDecoder(QObject *parent)
     : QObject(parent),
       m_ptsClock(0),
       m_startTime(0),
@@ -8,11 +8,11 @@ Decoder::Decoder(QObject *parent)
       m_avCodecCtx(nullptr),
       m_avFrame(nullptr)
 {
-    qRegisterMetaType<std::shared_ptr<Frame>>();
+    qRegisterMetaType<std::shared_ptr<QmlAVFrame>>();
     m_avFrame = av_frame_alloc();
 }
 
-Decoder::~Decoder()
+QmlAVDecoder::~QmlAVDecoder()
 {
     if (m_avFrame) {
         av_frame_free(&m_avFrame);
@@ -21,7 +21,7 @@ Decoder::~Decoder()
     closeCodec();
 }
 
-bool Decoder::openCodec(AVStream *stream)
+bool QmlAVDecoder::openCodec(AVStream *stream)
 {
     if (m_avCodecCtx || stream == nullptr) {
         return false;
@@ -53,7 +53,7 @@ bool Decoder::openCodec(AVStream *stream)
     return true;
 }
 
-void Decoder::closeCodec()
+void QmlAVDecoder::closeCodec()
 {
     m_avStream = nullptr;
 
@@ -62,7 +62,7 @@ void Decoder::closeCodec()
     }
 }
 
-bool Decoder::codecIsOpen() const
+bool QmlAVDecoder::codecIsOpen() const
 {
     if (m_avCodecCtx && avcodec_is_open(m_avCodecCtx) > 0) {
         return true;
@@ -71,7 +71,7 @@ bool Decoder::codecIsOpen() const
     return false;
 }
 
-int Decoder::streamIndex() const
+int QmlAVDecoder::streamIndex() const
 {
     if (m_avStream) {
         return m_avStream->index;
@@ -80,13 +80,13 @@ int Decoder::streamIndex() const
     return -1;
 }
 
-qint64 Decoder::clock() const
+qint64 QmlAVDecoder::clock() const
 {
     double pts = m_ptsClock - startPts();
     return m_startTime + pts * timeBase();
 }
 
-double Decoder::timeBase() const
+double QmlAVDecoder::timeBase() const
 {
     if (!m_avStream) {
         return 0;
@@ -95,14 +95,14 @@ double Decoder::timeBase() const
     return av_q2d(m_avStream->time_base) * 1000000;
 }
 
-qint64 Decoder::frameStartTime()
+qint64 QmlAVDecoder::frameStartTime()
 {
     double pts = framePts() - startPts();
     return m_startTime + pts * timeBase();
 }
 
 // WARNING: We should always return false when signal the frameFinished is not emitted!
-bool Decoder::decode(const AVPacket &packet)
+bool QmlAVDecoder::decode(const AVPacket &packet)
 {
     int ret;
 
@@ -135,7 +135,7 @@ bool Decoder::decode(const AVPacket &packet)
     return true;
 }
 
-qint64 Decoder::startPts() const
+qint64 QmlAVDecoder::startPts() const
 {
     if (!m_avStream || m_avStream->start_time == AV_NOPTS_VALUE) {
         return 0;
@@ -144,7 +144,7 @@ qint64 Decoder::startPts() const
     return m_avStream->start_time;
 }
 
-double Decoder::framePts()
+double QmlAVDecoder::framePts()
 {
     if (!m_avFrame || !m_avStream) {
         return 0;
@@ -166,16 +166,16 @@ double Decoder::framePts()
     return pts;
 }
 
-VideoDecoder::VideoDecoder(QObject *parent)
-    : Decoder(parent),
+QmlAVVideoDecoder::QmlAVVideoDecoder(QObject *parent)
+    : QmlAVDecoder(parent),
       m_surfacePixelFormat(QVideoFrame::Format_Invalid)
 {
 }
 
-void VideoDecoder::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats)
+void QmlAVVideoDecoder::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats)
 {
     if (codecIsOpen()) {
-        m_surfacePixelFormat = VideoFormat::pixelFormatFromFFmpegFormat(m_avCodecCtx->pix_fmt);
+        m_surfacePixelFormat = QmlAVVideoFormat::pixelFormatFromFFmpegFormat(m_avCodecCtx->pix_fmt);
         if (!formats.contains(m_surfacePixelFormat)) {
             m_surfacePixelFormat = QVideoFrame::Format_Invalid;
 
@@ -183,7 +183,7 @@ void VideoDecoder::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat
             for (int i = 0; i < formats.count(); ++i) {
                 // This pixel format should also successfully match the ffmpeg format
                 QVideoFrame::PixelFormat f = formats.value(i, QVideoFrame::Format_Invalid);
-                if (VideoFormat::ffmpegFormatFromPixelFormat(f) != AV_PIX_FMT_NONE)  {
+                if (QmlAVVideoFormat::ffmpegFormatFromPixelFormat(f) != AV_PIX_FMT_NONE)  {
                     m_surfacePixelFormat = f;
                     break;
                 }
@@ -192,7 +192,7 @@ void VideoDecoder::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat
     }
 }
 
-QVideoSurfaceFormat VideoDecoder::videoFormat() const
+QVideoSurfaceFormat QmlAVVideoDecoder::videoFormat() const
 {
     QSize size(0, 0);
 
@@ -206,7 +206,7 @@ QVideoSurfaceFormat VideoDecoder::videoFormat() const
     return format;
 }
 
-QSize VideoDecoder::pixelAspectRatio() const
+QSize QmlAVVideoDecoder::pixelAspectRatio() const
 {
     if (codecIsOpen()) {
         if (m_avCodecCtx->sample_aspect_ratio.num) {
@@ -218,20 +218,20 @@ QSize VideoDecoder::pixelAspectRatio() const
     return QSize(1, 1);
 }
 
-std::shared_ptr<Frame> VideoDecoder::frame()
+std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::frame()
 {
-    std::shared_ptr<VideoFrame> vf(new VideoFrame(frameStartTime()));
+    std::shared_ptr<QmlAVVideoFrame> vf(new QmlAVVideoFrame(frameStartTime()));
     vf->setPixelFormat(m_surfacePixelFormat);
     vf->fromAVFrame(m_avFrame);
     return vf;
 }
 
-AudioDecoder::AudioDecoder(QObject *parent)
-    : Decoder(parent)
+QmlAVAudioDecoder::QmlAVAudioDecoder(QObject *parent)
+    : QmlAVDecoder(parent)
 {
 }
 
-QAudioFormat AudioDecoder::audioFormat()
+QAudioFormat QmlAVAudioDecoder::audioFormat()
 {
     QAudioFormat format;
 
@@ -240,16 +240,16 @@ QAudioFormat AudioDecoder::audioFormat()
         format.setChannelCount(m_avCodecCtx->channels);
         format.setCodec("audio/pcm");
         format.setByteOrder(AV_NE(QAudioFormat::BigEndian, QAudioFormat::LittleEndian));
-        format.setSampleType(AudioFormat::audioFormatFromFFmpegFormat(m_avCodecCtx->sample_fmt));
+        format.setSampleType(QmlAVAudioFormat::audioFormatFromFFmpegFormat(m_avCodecCtx->sample_fmt));
         format.setSampleSize(av_get_bytes_per_sample(m_avCodecCtx->sample_fmt) * 8);
     }
 
     return  format;
 }
 
-std::shared_ptr<Frame> AudioDecoder::frame()
+std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::frame()
 {
-    std::shared_ptr<AudioFrame> af(new AudioFrame(frameStartTime()));
+    std::shared_ptr<QmlAVAudioFrame> af(new QmlAVAudioFrame(frameStartTime()));
     af->setAudioFormat(audioFormat());
     af->fromAVFrame(m_avFrame);
     return af;

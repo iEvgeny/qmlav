@@ -1,21 +1,21 @@
-#include "frame.h"
-#include "decoder.h"
+#include "qmlavframe.h"
+#include "qmlavdecoder.h"
 
-Frame::Frame(qint64 startTime, Frame::Type type)
+QmlAVFrame::QmlAVFrame(qint64 startTime, QmlAVFrame::Type type)
     : m_type(type),
       m_startTime(startTime)
 {
 }
 
-VideoFrame::VideoFrame(qint64 startTime)
-    : Frame(startTime, Frame::TypeVideo),
+QmlAVVideoFrame::QmlAVVideoFrame(qint64 startTime)
+    : QmlAVFrame(startTime, QmlAVFrame::TypeVideo),
       m_pixelFormat(QVideoFrame::Format_Invalid)
 {
 }
 
-bool VideoFrame::isValid() const
+bool QmlAVVideoFrame::isValid() const
 {
-    if (m_type == Frame::TypeVideo) {
+    if (m_type == QmlAVFrame::TypeVideo) {
         return m_videoFrame.isValid();
     }
 
@@ -24,7 +24,7 @@ bool VideoFrame::isValid() const
 
 #define FFMPEG_ALIGNMENT (32)
 
-void VideoFrame::fromAVFrame(AVFrame *avFrame)
+void QmlAVVideoFrame::fromAVFrame(AVFrame *avFrame)
 {
     SwsContext *swsCtx = nullptr;
 
@@ -32,8 +32,8 @@ void VideoFrame::fromAVFrame(AVFrame *avFrame)
         return;
     }
 
-    AVPixelFormat srcAVFormat = VideoFormat::normalizeFFmpegPixelFormat(static_cast<AVPixelFormat>(avFrame->format));
-    AVPixelFormat dstAVFormat = VideoFormat::ffmpegFormatFromPixelFormat(m_pixelFormat);
+    AVPixelFormat srcAVFormat = QmlAVVideoFormat::normalizeFFmpegPixelFormat(static_cast<AVPixelFormat>(avFrame->format));
+    AVPixelFormat dstAVFormat = QmlAVVideoFormat::ffmpegFormatFromPixelFormat(m_pixelFormat);
 
     swsCtx = sws_getContext(avFrame->width, avFrame->height,
                             srcAVFormat,
@@ -68,19 +68,19 @@ void VideoFrame::fromAVFrame(AVFrame *avFrame)
     }
 }
 
-AudioFrame::AudioFrame(qint64 startTime)
-    : Frame(startTime, Frame::TypeAudio),
+QmlAVAudioFrame::QmlAVAudioFrame(qint64 startTime)
+    : QmlAVFrame(startTime, QmlAVFrame::TypeAudio),
       m_data(nullptr),
       m_dataSize(0)
 {
 }
 
-AudioFrame::~AudioFrame()
+QmlAVAudioFrame::~QmlAVAudioFrame()
 {
     delete m_data;
 }
 
-bool AudioFrame::isValid() const
+bool QmlAVAudioFrame::isValid() const
 {
     if (m_data && m_dataSize) {
         return true;
@@ -89,7 +89,7 @@ bool AudioFrame::isValid() const
     return false;
 }
 
-void AudioFrame::fromAVFrame(AVFrame *avFrame)
+void QmlAVAudioFrame::fromAVFrame(AVFrame *avFrame)
 {
     SwrContext *swrCtx = nullptr;
 

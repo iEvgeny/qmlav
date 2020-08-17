@@ -1,5 +1,5 @@
-#ifndef FORMAT_H
-#define FORMAT_H
+#ifndef QMLAVFORMAT_H
+#define QMLAVFORMAT_H
 
 #include <QtCore>
 #include <QVideoFrame>
@@ -10,7 +10,7 @@ extern "C" {
 }
 
 
-class VideoFormat
+class QmlAVVideoFormat
 {
 public:
     static AVPixelFormat normalizeFFmpegPixelFormat(AVPixelFormat avPixelFormat);
@@ -18,11 +18,11 @@ public:
     static AVPixelFormat ffmpegFormatFromPixelFormat(QVideoFrame::PixelFormat pixelFormat);
 };
 
-class AudioFormat
+class QmlAVAudioFormat
 {
 public:
     static QAudioFormat::SampleType audioFormatFromFFmpegFormat(AVSampleFormat sampleFormat);
 };
 
 
-#endif // FORMAT_H
+#endif // QMLAVFORMAT_H

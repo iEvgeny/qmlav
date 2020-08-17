@@ -1,6 +1,6 @@
-#include "demuxer.h"
+#include "qmlavdemuxer.h"
 
-InterruptCallback::InterruptCallback(qint64 timeout)
+QmlAVInterruptCallback::QmlAVInterruptCallback(qint64 timeout)
 {
     callback = handler;
     opaque = this;
@@ -8,15 +8,15 @@ InterruptCallback::InterruptCallback(qint64 timeout)
     m_interruptionRequested = false;
 }
 
-void InterruptCallback::startTimer()
+void QmlAVInterruptCallback::startTimer()
 {
     m_interruptionRequested = false;
     m_timer.start();
 }
 
-int InterruptCallback::handler(void *obj)
+int QmlAVInterruptCallback::handler(void *obj)
 {
-    InterruptCallback *cb = reinterpret_cast<InterruptCallback*>(obj);
+    QmlAVInterruptCallback *cb = reinterpret_cast<QmlAVInterruptCallback*>(obj);
     Q_ASSERT(cb);
     if (!cb) {
         return 0;
@@ -38,7 +38,7 @@ int InterruptCallback::handler(void *obj)
     return 1; // Interrupt
 }
 
-Demuxer::Demuxer(QObject *parent)
+QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     : QObject(parent),
       m_realtime(false),
       m_lastTime(0),
@@ -48,11 +48,11 @@ Demuxer::Demuxer(QObject *parent)
       m_status(QMediaPlayer::UnknownMediaStatus),
       m_interruptionRequested(false)
 {
-    connect(&m_videoDecoder, &VideoDecoder::frameFinished, this, &Demuxer::frameFinished);
-    connect(&m_audioDecoder, &AudioDecoder::frameFinished, this, &Demuxer::frameFinished);
+    connect(&m_videoDecoder, &QmlAVVideoDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
+    connect(&m_audioDecoder, &QmlAVAudioDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
 }
 
-Demuxer::~Demuxer()
+QmlAVDemuxer::~QmlAVDemuxer()
 {
     requestInterruption();
 
@@ -61,13 +61,13 @@ Demuxer::~Demuxer()
     }
 }
 
-void Demuxer::requestInterruption()
+void QmlAVDemuxer::requestInterruption()
 {
     m_interruptCallback.requestInterruption();
     m_interruptionRequested = true;
 }
 
-void Demuxer::load(const QUrl &url, const QVariantMap &options)
+void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &options)
 {
     int ret;
     QString source(url.toString());
@@ -154,7 +154,7 @@ void Demuxer::load(const QUrl &url, const QVariantMap &options)
     av_dict_free(&avOptions);
 }
 
-void Demuxer::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats)
+void QmlAVDemuxer::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats)
 {
     if (m_videoDecoder.codecIsOpen()) {
         m_videoDecoder.setSupportedPixelFormats(formats);
@@ -164,7 +164,7 @@ void Demuxer::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &fo
 
 #define MAX_QUEUE_DEPTH (3000000)  // 3 sec.
 
-void Demuxer::run()
+void QmlAVDemuxer::run()
 {
     int ret;
 
@@ -242,7 +242,7 @@ void Demuxer::run()
     }
 }
 
-bool Demuxer::isRealtime(QUrl url)
+bool QmlAVDemuxer::isRealtime(QUrl url)
 {
     if (url.scheme() == "rtp"
             || url.scheme() == "srtp"
@@ -255,12 +255,12 @@ bool Demuxer::isRealtime(QUrl url)
     return false;
 }
 
-bool Demuxer::isInterruptionRequested() const
+bool QmlAVDemuxer::isInterruptionRequested() const
 {
     return m_playbackState != QMediaPlayer::PlayingState || m_interruptionRequested;
 }
 
-void Demuxer::setStatus(QMediaPlayer::MediaStatus status)
+void QmlAVDemuxer::setStatus(QMediaPlayer::MediaStatus status)
 {
     if (m_status == status) {
         return;
@@ -271,7 +271,7 @@ void Demuxer::setStatus(QMediaPlayer::MediaStatus status)
     emit statusChanged(status);
 }
 
-void Demuxer::setPlaybackState(const QMediaPlayer::State state)
+void QmlAVDemuxer::setPlaybackState(const QMediaPlayer::State state)
 {
     if (m_playbackState == state) {
         return;
@@ -282,7 +282,7 @@ void Demuxer::setPlaybackState(const QMediaPlayer::State state)
     emit playbackStateChanged(state);
 }
 
-bool Demuxer::findStreams()
+bool QmlAVDemuxer::findStreams()
 {
     m_videoStreams.clear();
     m_audioStreams.clear();

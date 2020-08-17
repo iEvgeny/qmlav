@@ -1,22 +1,22 @@
-#ifndef AUDIOQUEUE_H
-#define AUDIOQUEUE_H
+#ifndef QMLAVAUDIOQUEUE_H
+#define QMLAVAUDIOQUEUE_H
 
 #include <QtCore>
 
-#include "frame.h"
+#include "qmlavframe.h"
 
-class AudioQueue : public QIODevice
+class QmlAVAudioQueue : public QIODevice
 {
     Q_OBJECT
 
 public:
-    AudioQueue(QObject *parent = nullptr);
-    virtual ~AudioQueue();
+    QmlAVAudioQueue(QObject *parent = nullptr);
+    virtual ~QmlAVAudioQueue();
 
     virtual qint64 bytesAvailable() const override;
     virtual bool isSequential() const override;
 
-    void push(const std::shared_ptr<AudioFrame> frame);
+    void push(const std::shared_ptr<QmlAVAudioFrame> frame);
 
 protected:
     virtual qint64 readData(char *data, qint64 maxSize) override;
@@ -26,4 +26,4 @@ private:
     QByteArray m_buffer;
 };
 
-#endif // AUDIOQUEUE_H
+#endif // QMLAVAUDIOQUEUE_H

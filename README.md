@@ -9,20 +9,20 @@ FFmpeg based real time QML player
 QT += quick multimedia
 
 HEADERS += \
-    qmlav/src/audioqueue.h \
-    qmlav/src/decoder.h \
-    qmlav/src/demuxer.h \
-    qmlav/src/ffplayer.h \
-    qmlav/src/format.h \
-    qmlav/src/frame.h
+    qmlav/src/qmlavaudioqueue.h \
+    qmlav/src/qmlavdecoder.h \
+    qmlav/src/qmlavdemuxer.h \
+    qmlav/src/qmlavplayer.h \
+    qmlav/src/qmlavformat.h \
+    qmlav/src/qmlavframe.h
 
 SOURCES += \
-    qmlav/src/audioqueue.cpp \
-    qmlav/src/decoder.cpp \
-    qmlav/src/demuxer.cpp \
-    qmlav/src/ffplayer.cpp \
-    qmlav/src/format.cpp \
-    qmlav/src/frame.cpp
+    qmlav/src/qmlavaudioqueue.cpp \
+    qmlav/src/qmlavdecoder.cpp \
+    qmlav/src/qmlavdemuxer.cpp \
+    qmlav/src/qmlavplayer.cpp \
+    qmlav/src/qmlavformat.cpp \
+    qmlav/src/qmlavframe.cpp
 
 LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 ```
@@ -30,9 +30,9 @@ LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 2. Register the QML type before using
 
 ```
-#include "qmlav/src/ffplayer.h"
+#include "qmlav/src/qmlavplayer.h"
 
-qmlRegisterType<FFPlayer>("QmlAV.Multimedia", 1, 0, "FFPlayer");
+qmlRegisterType<FFPlayer>("QmlAV.Multimedia", 1, 0, "QmlAVPlayer");
 
 ...
 ```
@@ -48,12 +48,12 @@ Item {
     VideoOutput {
         id: videoOutput
 
-        source: ffPlayer
+        source: qmlAvPlayer
         anchors.fill: parent
     }
 
-    FFPlayer {
-        id: ffPlayer
+    QmlAVPlayer {
+        id: qmlAvPlayer
 
         autoPlay: true
         source: rtmp://example.ru/stream/name

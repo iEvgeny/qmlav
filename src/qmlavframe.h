@@ -1,11 +1,11 @@
-#ifndef FRAME_H
-#define FRAME_H
+#ifndef QMLAVFRAME_H
+#define QMLAVFRAME_H
 
 #include <memory>
 #include <QtCore>
 #include <QVideoFrame>
 
-#include "format.h"
+#include "qmlavformat.h"
 
 extern "C" {
     #include <libavformat/avformat.h>
@@ -14,7 +14,7 @@ extern "C" {
     #include <libswresample/swresample.h>
 }
 
-class Frame
+class QmlAVFrame
 {
 public:
     enum Type
@@ -24,26 +24,26 @@ public:
         TypeAudio
     };
 
-    Frame(qint64 startTime, Frame::Type type = Frame::TypeUnknown);
-    virtual ~Frame() {}
+    QmlAVFrame(qint64 startTime, QmlAVFrame::Type type = QmlAVFrame::TypeUnknown);
+    virtual ~QmlAVFrame() {}
 
     virtual bool isValid() const { return false; }
     virtual void fromAVFrame(AVFrame *avFrame) { Q_UNUSED(avFrame); }
-    Frame::Type type() const { return m_type; }
+    QmlAVFrame::Type type() const { return m_type; }
     qint64 startTime() const { return m_startTime; }
 
 private:
-    Frame::Type m_type;
+    QmlAVFrame::Type m_type;
     qint64 m_startTime; // Absolute microsecond timestamp
 
-    friend class VideoFrame;
-    friend class AudioFrame;
+    friend class QmlAVVideoFrame;
+    friend class QmlAVAudioFrame;
 };
 
-class VideoFrame : public Frame
+class QmlAVVideoFrame : public QmlAVFrame
 {
 public:
-    VideoFrame(qint64 startTime);
+    QmlAVVideoFrame(qint64 startTime);
 
     virtual bool isValid() const override;
     virtual void fromAVFrame(AVFrame *avFrame) override;
@@ -57,11 +57,11 @@ private:
     QVideoFrame::PixelFormat m_pixelFormat;
 };
 
-class AudioFrame : public Frame
+class QmlAVAudioFrame : public QmlAVFrame
 {
 public:
-    AudioFrame(qint64 startTime);
-    virtual ~AudioFrame();
+    QmlAVAudioFrame(qint64 startTime);
+    virtual ~QmlAVAudioFrame();
 
     virtual bool isValid() const override;
     virtual void fromAVFrame(AVFrame *avFrame) override;
@@ -76,4 +76,4 @@ private:
     QAudioFormat m_audioFormat;
 };
 
-#endif // FRAME_H
+#endif // QMLAVFRAME_H

@@ -1,5 +1,5 @@
-#ifndef AVPLAYER_H
-#define AVPLAYER_H
+#ifndef QMLAVPLAYER_H
+#define QMLAVPLAYER_H
 
 #include <QtCore>
 #include <QMediaPlayer>
@@ -7,8 +7,8 @@
 #include <QVideoSurfaceFormat>
 #include <QAudioOutput>
 
-#include "demuxer.h"
-#include "audioqueue.h"
+#include "qmlavdemuxer.h"
+#include "qmlavaudioqueue.h"
 
 #define Q_PROPERTY_WRITE_IMPL(type, name, write, notify) \
     void write(const type &var) { \
@@ -18,7 +18,7 @@
         emit notify(var); \
     }
 
-class FFPlayer : public QObject
+class QmlAVPlayer : public QObject
 {
     Q_OBJECT
 
@@ -38,8 +38,8 @@ class FFPlayer : public QObject
     Q_PROPERTY(bool hasAudio READ hasAudio NOTIFY hasAudioChanged)
 
 public:
-    explicit FFPlayer(QObject *parent = nullptr);
-    ~FFPlayer();
+    explicit QmlAVPlayer(QObject *parent = nullptr);
+    ~QmlAVPlayer();
 
     QAbstractVideoSurface *videoSurface() const { return m_videoSurface; }
 
@@ -94,7 +94,7 @@ protected:
     void stateMachine();
 
 protected slots:
-    void frameHandler(const std::shared_ptr<Frame> frame);
+    void frameHandler(const std::shared_ptr<QmlAVFrame> frame);
     void setVideoFormat(const QVideoSurfaceFormat &format);
     void setAudioFormat(const QAudioFormat &format);
     void setPlaybackState(const QMediaPlayer::State state);
@@ -104,10 +104,10 @@ protected slots:
 
 private:
     QThread m_thread;
-    Demuxer *m_demuxer;
+    QmlAVDemuxer *m_demuxer;
     QVideoSurfaceFormat m_videoFormat;
     QAbstractVideoSurface *m_videoSurface;
-    AudioQueue m_audioQueue;
+    QmlAVAudioQueue m_audioQueue;
     QAudioDeviceInfo m_audioDeviceInfo;
     QAudioFormat m_audioFormat;
     QAudioOutput *m_audioOutput;
@@ -126,4 +126,4 @@ private:
     bool m_hasAudio;
 };
 
-#endif // AVPLAYER_H
+#endif // QMLAVPLAYER_H

@@ -1,6 +1,6 @@
-#include "format.h"
+#include "qmlavformat.h"
 
-AVPixelFormat VideoFormat::normalizeFFmpegPixelFormat(AVPixelFormat avPixelFormat)
+AVPixelFormat QmlAVVideoFormat::normalizeFFmpegPixelFormat(AVPixelFormat avPixelFormat)
 {
     // Replace deprecated AV_PIX_FMT_YUVJXXXP formats
     QMap<AVPixelFormat, AVPixelFormat> pixelFormatMap {
@@ -16,7 +16,7 @@ AVPixelFormat VideoFormat::normalizeFFmpegPixelFormat(AVPixelFormat avPixelForma
     return pixelFormatMap.value(avPixelFormat, avPixelFormat);
 }
 
-QVideoFrame::PixelFormat VideoFormat::pixelFormatFromFFmpegFormat(AVPixelFormat avPixelFormat)
+QVideoFrame::PixelFormat QmlAVVideoFormat::pixelFormatFromFFmpegFormat(AVPixelFormat avPixelFormat)
 {
     // TODO:
     QMap<AVPixelFormat, QVideoFrame::PixelFormat> pixelFormatMap {
@@ -60,7 +60,7 @@ QVideoFrame::PixelFormat VideoFormat::pixelFormatFromFFmpegFormat(AVPixelFormat 
     return pixelFormatMap.value(avPixelFormat, QVideoFrame::Format_Invalid);
 }
 
-AVPixelFormat VideoFormat::ffmpegFormatFromPixelFormat(QVideoFrame::PixelFormat pixelFormat)
+AVPixelFormat QmlAVVideoFormat::ffmpegFormatFromPixelFormat(QVideoFrame::PixelFormat pixelFormat)
 {
     // TODO:
     QMap<QVideoFrame::PixelFormat, AVPixelFormat> pixelFormatMap {
@@ -101,7 +101,7 @@ AVPixelFormat VideoFormat::ffmpegFormatFromPixelFormat(QVideoFrame::PixelFormat 
     return pixelFormatMap.value(pixelFormat, AV_PIX_FMT_NONE);
 }
 
-QAudioFormat::SampleType AudioFormat::audioFormatFromFFmpegFormat(AVSampleFormat sampleFormat)
+QAudioFormat::SampleType QmlAVAudioFormat::audioFormatFromFFmpegFormat(AVSampleFormat sampleFormat)
 {
     QMap<AVSampleFormat, QAudioFormat::SampleType> sampleFormatMap {
         {AV_SAMPLE_FMT_U8, QAudioFormat::UnSignedInt}, // unsigned 8 bits
