@@ -27,10 +27,9 @@ QmlAVPlayer::QmlAVPlayer(QObject *parent)
 QmlAVPlayer::~QmlAVPlayer()
 {
     stop();
-
     m_thread.requestInterruption();
     m_thread.quit();
-    m_thread.wait();
+    m_thread.wait(300/* BUG: Temporary fix of termination on Android*/);
 }
 
 void QmlAVPlayer::play()
@@ -44,6 +43,7 @@ void QmlAVPlayer::stop()
 {
     if (m_demuxer) {
         m_demuxer->requestInterruption();
+        QThread::msleep(100);  // BUG: Temporary fix of termination on Android
         m_demuxer->disconnect();
         m_demuxer->deleteLater();
         m_demuxer = nullptr;
