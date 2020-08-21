@@ -22,7 +22,7 @@ int QmlAVInterruptCallback::handler(void *obj)
         return 0;
     }
 
-    if (QThread::currentThread()->isInterruptionRequested() || cb->m_interruptionRequested) {
+    if (cb->m_interruptionRequested || QThread::currentThread()->isInterruptionRequested()) {
         return 1; // Interrupt
     }
 
@@ -181,9 +181,9 @@ void QmlAVDemuxer::run()
     m_videoDecoder.setStartTime(startTime);
     m_audioDecoder.setStartTime(startTime);
 
-    while (!isInterruptionRequested()) {
+    while (!isInterruptionRequested() || m_playbackState == QMediaPlayer::PlayingState) {
         if (!m_formatCtx) {
-            return;
+            break;
         }
 
         av_init_packet(&m_packet);
@@ -211,7 +211,7 @@ void QmlAVDemuxer::run()
             }
 
             QThread::usleep(qMax(m_videoDecoder.timeBase(), 100.0));
-            QCoreApplication::processEvents();
+            QCoreApplication::sendPostedEvents();
         }
 
         if (m_packet.stream_index == m_videoDecoder.streamIndex()) {
@@ -238,8 +238,10 @@ void QmlAVDemuxer::run()
 
         av_packet_unref(&m_packet);
 
-        QCoreApplication::processEvents();
+        QCoreApplication::sendPostedEvents();
     }
+
+    setPlaybackState(QMediaPlayer::StoppedState);
 }
 
 bool QmlAVDemuxer::isRealtime(QUrl url)
@@ -257,7 +259,7 @@ bool QmlAVDemuxer::isRealtime(QUrl url)
 
 bool QmlAVDemuxer::isInterruptionRequested() const
 {
-    return m_playbackState != QMediaPlayer::PlayingState || m_interruptionRequested;
+    return m_interruptionRequested || QThread::currentThread()->isInterruptionRequested();
 }
 
 void QmlAVDemuxer::setStatus(QMediaPlayer::MediaStatus status)
