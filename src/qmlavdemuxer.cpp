@@ -237,8 +237,6 @@ void QmlAVDemuxer::run()
         }
 
         av_packet_unref(&m_packet);
-
-        QCoreApplication::sendPostedEvents();
     }
 
     setPlaybackState(QMediaPlayer::StoppedState);
