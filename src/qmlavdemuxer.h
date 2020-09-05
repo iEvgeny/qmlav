@@ -47,7 +47,7 @@ public:
     void requestInterruption();
 
 public slots:
-    void load(const QUrl &url, const QVariantMap &options);
+    void load(const QUrl &url, const QVariantMap &formatOptions);
     void setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats);
     void run();
     void setHandledTime(qint64 time) { m_handledTime = time; }

@@ -76,6 +76,24 @@ void QmlAVPlayer::setVideoSurface(QAbstractVideoSurface *surface)
     }
 }
 
+void QmlAVPlayer::setAVFormatOptions(const QVariantMap &options)
+{
+    if (m_avFormatOptions == options) {
+        return;
+    }
+
+    stop();
+
+    m_avFormatOptions = options;
+    if (m_autoPlay) {
+        play();
+    } else if (m_autoLoad) {
+        load();
+    }
+
+    emit avFormatOptionsChanged(m_avFormatOptions);
+}
+
 void QmlAVPlayer::setAutoLoad(bool autoLoad)
 {
     if (m_autoLoad == autoLoad)
@@ -153,7 +171,7 @@ bool QmlAVPlayer::load()
         connect(m_demuxer, &QmlAVDemuxer::playbackStateChanged, this, &QmlAVPlayer::setPlaybackState);
         connect(m_demuxer, &QmlAVDemuxer::statusChanged, this, &QmlAVPlayer::setStatus);
 
-        emit demuxerLoad(m_source, m_ffmpegFormatOptions);
+        emit demuxerLoad(m_source, m_avFormatOptions);
         if (m_videoSurface) {
             emit demuxerSetSupportedPixelFormats(m_videoSurface->supportedPixelFormats());
         }

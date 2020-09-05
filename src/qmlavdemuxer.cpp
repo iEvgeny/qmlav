@@ -67,11 +67,11 @@ void QmlAVDemuxer::requestInterruption()
     m_interruptionRequested = true;
 }
 
-void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &options)
+void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
 {
     int ret;
     QString source(url.toString());
-    AVDictionary *avOptions = nullptr;
+    AVDictionary *avFormatOptions = nullptr;
 
     if (m_formatCtx) {
         return;
@@ -98,17 +98,17 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &options)
     setStatus(QMediaPlayer::LoadingMedia);
     setPlaybackState(QMediaPlayer::StoppedState);
 
-    QMapIterator<QString, QVariant> i(options);
+    QMapIterator<QString, QVariant> i(formatOptions);
     while (i.hasNext()) {
         i.next();
-        av_dict_set(&avOptions, i.key().toUtf8(), i.value().toString().toUtf8(), 0);
+        av_dict_set(&avFormatOptions, i.key().toUtf8(), i.value().toString().toUtf8(), 0);
     }
 
     m_formatCtx = avformat_alloc_context();
     m_formatCtx->interrupt_callback = m_interruptCallback;
 
     m_interruptCallback.startTimer();
-    ret = avformat_open_input(&m_formatCtx, source.toUtf8(), nullptr, &avOptions);
+    ret = avformat_open_input(&m_formatCtx, source.toUtf8(), nullptr, &avFormatOptions);
     if (ret < 0) {
         setStatus(QMediaPlayer::InvalidMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
@@ -151,7 +151,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &options)
 
     setStatus(QMediaPlayer::LoadedMedia);
 
-    av_dict_free(&avOptions);
+    av_dict_free(&avFormatOptions);
 }
 
 void QmlAVDemuxer::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats)

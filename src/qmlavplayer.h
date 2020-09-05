@@ -24,7 +24,7 @@ class QmlAVPlayer : public QObject
 
     Q_PROPERTY(QAbstractVideoSurface *videoSurface READ videoSurface WRITE setVideoSurface)
 
-    Q_PROPERTY(QVariantMap ffmpegFormatOptions READ ffmpegFormatOptions WRITE setFFmpegFormatOptions NOTIFY ffmpegFormatOptionsChanged)
+    Q_PROPERTY(QVariantMap avFormatOptions READ avFormatOptions WRITE setAVFormatOptions NOTIFY avFormatOptionsChanged)
     Q_PROPERTY(bool autoLoad READ autoLoad WRITE setAutoLoad NOTIFY autoLoadChanged)
     Q_PROPERTY(bool autoPlay READ autoPlay WRITE setAutoPlay NOTIFY autoPlayChanged)
     Q_PROPERTY(int loops READ loops WRITE setLoops NOTIFY loopsChanged) // NOTE: Implemented partially (Once playing and infinite loop behavior)
@@ -43,7 +43,7 @@ public:
 
     QAbstractVideoSurface *videoSurface() const { return m_videoSurface; }
 
-    QVariantMap ffmpegFormatOptions() const { return m_ffmpegFormatOptions; }
+    QVariantMap avFormatOptions() const { return m_avFormatOptions; }
     bool autoLoad() const { return m_autoLoad; }
     bool autoPlay() const { return m_autoPlay; }
     int loops() const { return m_loops; }
@@ -61,7 +61,7 @@ public slots:
     void stop();
     void setVideoSurface(QAbstractVideoSurface *surface);
 
-    Q_PROPERTY_WRITE_IMPL(QVariantMap, ffmpegFormatOptions, setFFmpegFormatOptions, ffmpegFormatOptionsChanged)
+    void setAVFormatOptions(const QVariantMap &options);
     void setAutoLoad(bool autoLoad);
     void setAutoPlay(bool autoPlay);
     Q_PROPERTY_WRITE_IMPL(int, loops, setLoops, loopsChanged)
@@ -70,7 +70,7 @@ public slots:
     void setVolume(const QVariant &volume);
 
 signals:
-    void demuxerLoad(const QUrl &source, const QVariantMap &options = QVariantMap());
+    void demuxerLoad(const QUrl &source, const QVariantMap &formatOptions = QVariantMap());
     void demuxerSetSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats);
     void demuxerStart();
     void demuxerSetHandledTime(qint64 pos);
@@ -86,8 +86,7 @@ signals:
     void volumeChanged(QVariant volume);
     void hasVideoChanged(bool hasVideo);
     void hasAudioChanged(bool hasAudio);
-
-    void ffmpegFormatOptionsChanged(QVariantMap ffmpegFormatOptions);
+    void avFormatOptionsChanged(QVariantMap avFormatOptions);
 
 protected:
     bool load();
@@ -113,7 +112,7 @@ private:
     QAudioOutput *m_audioOutput;
     QTimer m_playTimer;
 
-    QVariantMap m_ffmpegFormatOptions;
+    QVariantMap m_avFormatOptions;
     bool m_autoLoad;
     bool m_autoPlay;
     int m_loops;
