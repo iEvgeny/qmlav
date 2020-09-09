@@ -236,7 +236,9 @@ void QmlAVDemuxer::run()
             QThread::usleep(1);
         }
 
+#ifndef Q_OS_ANDROID
         QCoreApplication::processEvents();
+#endif
 
         av_packet_unref(&m_packet);
     }
