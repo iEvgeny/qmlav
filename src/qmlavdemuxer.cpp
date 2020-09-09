@@ -211,7 +211,7 @@ void QmlAVDemuxer::run()
             }
 
             QThread::usleep(qMax(m_videoDecoder.timeBase(), 100.0));
-            QCoreApplication::sendPostedEvents();
+            QCoreApplication::processEvents();
         }
 
         if (m_packet.stream_index == m_videoDecoder.streamIndex()) {
@@ -236,10 +236,10 @@ void QmlAVDemuxer::run()
             QThread::usleep(1);
         }
 
+        QCoreApplication::processEvents();
+
         av_packet_unref(&m_packet);
     }
-
-    setPlaybackState(QMediaPlayer::StoppedState);
 }
 
 bool QmlAVDemuxer::isRealtime(QUrl url)
