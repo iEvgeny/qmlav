@@ -104,14 +104,15 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     }
     m_realtime = isRealtime(url);
 
-    setStatus(QMediaPlayer::LoadingMedia);
-    setPlaybackState(QMediaPlayer::StoppedState);
-
     QMapIterator<QString, QVariant> i(formatOptions);
     while (i.hasNext()) {
         i.next();
         av_dict_set(&avFormatOptions, i.key().toUtf8(), i.value().toString().toUtf8(), 0);
+        QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("Added AVFormat option: -%1 %2").arg(i.key()).arg(i.value().toString()));
     }
+
+    setStatus(QMediaPlayer::LoadingMedia);
+    setPlaybackState(QMediaPlayer::StoppedState);
 
     m_formatCtx = avformat_alloc_context();
     m_formatCtx->interrupt_callback = m_interruptCallback;
