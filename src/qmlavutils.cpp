@@ -19,6 +19,26 @@ void QmlAVUtils::log(const QString id, QmlAVUtils::LogLevel logLevel, const QStr
     }
 }
 
+void QmlAVUtils::logError(const QString id, const QString message)
+{
+    log(id, QmlAVUtils::LogError, message);
+}
+
+void QmlAVUtils::logInfo(const QString id, const QString message)
+{
+    log(id, QmlAVUtils::LogInfo, message);
+}
+
+void QmlAVUtils::logVerbose(const QString id, const QString message)
+{
+    log(id, QmlAVUtils::LogVerbose, message);
+}
+
+void QmlAVUtils::logDebug(const QString id, const QString message)
+{
+    log(id, QmlAVUtils::LogDebug, message);
+}
+
 QString QmlAVUtils::logId(const QmlAVDemuxer *p)
 {
     QString logId = QString().number(reinterpret_cast<long>(p), 16);

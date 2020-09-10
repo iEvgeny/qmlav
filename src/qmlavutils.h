@@ -21,10 +21,10 @@ public:
 
     static int verboseLevel();
     static void log(const QString id, QmlAVUtils::LogLevel logLevel, const QString message);
-    static void logError(const QString id, const QString message) { log(id, QmlAVUtils::LogError, message); }
-    static void logInfo(const QString id, const QString message) { log(id, QmlAVUtils::LogInfo, message); }
-    static void logVerbose(const QString id, const QString message) { log(id, QmlAVUtils::LogVerbose, message); }
-    static void logDebug(const QString id, const QString message) { log(id, QmlAVUtils::LogDebug, message); }
+    static void logError(const QString id, const QString message);
+    static void logInfo(const QString id, const QString message);
+    static void logVerbose(const QString id, const QString message);
+    static void logDebug(const QString id, const QString message);
     static QString logId(const QmlAVDemuxer *p);
 };
 
