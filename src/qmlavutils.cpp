@@ -24,7 +24,11 @@ QString QmlAVUtils::logId(const QmlAVDemuxer *p)
     QString logId = QString().number(reinterpret_cast<long>(p), 16);
 
     if (p && p->m_formatCtx) {
+#ifdef FF_API_NEXT
         logId += QString(", %1").arg(p->m_formatCtx->url);
+#else
+        logId += QString(", %1").arg(p->m_formatCtx->filename);
+#endif
     }
 
     return logId;
