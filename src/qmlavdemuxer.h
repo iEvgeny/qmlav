@@ -1,6 +1,13 @@
 #ifndef QMLAVDEMUXER_H
 #define QMLAVDEMUXER_H
 
+extern "C" {
+    #include <libavformat/avformat.h>
+    #include <libavcodec/avcodec.h>
+    #include <libavutil/time.h>
+    #include <libavdevice/avdevice.h>
+}
+
 #include <QtCore>
 #include <QVideoFrame>
 #include <QMediaPlayer>
@@ -8,13 +15,6 @@
 #include <QAudioOutput>
 
 #include "qmlavdecoder.h"
-
-extern "C" {
-    #include <libavformat/avformat.h>
-    #include <libavcodec/avcodec.h>
-    #include <libavutil/time.h>
-    #include <libavdevice/avdevice.h>
-}
 
 class QmlAVDemuxer;
 
@@ -81,6 +81,8 @@ private:
     QMediaPlayer::MediaStatus m_status;
 
     std::atomic<bool> m_interruptionRequested;
+
+    friend class QmlAVUtils;
 };
 
 #endif // QMLAVDEMUXER_H

@@ -14,7 +14,8 @@ HEADERS += \
     qmlav/src/qmlavdemuxer.h \
     qmlav/src/qmlavplayer.h \
     qmlav/src/qmlavformat.h \
-    qmlav/src/qmlavframe.h
+    qmlav/src/qmlavframe.h \
+    qmlav/src/qmlavutils.h
 
 SOURCES += \
     qmlav/src/qmlavaudioqueue.cpp \
@@ -22,7 +23,8 @@ SOURCES += \
     qmlav/src/qmlavdemuxer.cpp \
     qmlav/src/qmlavplayer.cpp \
     qmlav/src/qmlavformat.cpp \
-    qmlav/src/qmlavframe.cpp
+    qmlav/src/qmlavframe.cpp \
+    qmlav/src/qmlavutils.cpp
 
 LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 ```

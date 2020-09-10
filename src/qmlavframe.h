@@ -1,18 +1,18 @@
 #ifndef QMLAVFRAME_H
 #define QMLAVFRAME_H
 
-#include <memory>
-#include <QtCore>
-#include <QVideoFrame>
-
-#include "qmlavformat.h"
-
 extern "C" {
     #include <libavformat/avformat.h>
     #include <libavutil/imgutils.h>
     #include <libswscale/swscale.h>
     #include <libswresample/swresample.h>
 }
+
+#include <memory>
+#include <QtCore>
+#include <QVideoFrame>
+
+#include "qmlavformat.h"
 
 class QmlAVFrame
 {

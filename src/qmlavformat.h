@@ -1,14 +1,13 @@
 #ifndef QMLAVFORMAT_H
 #define QMLAVFORMAT_H
 
-#include <QtCore>
-#include <QVideoFrame>
-#include <QAudioOutput>
-
 extern "C" {
     #include <libavformat/avformat.h>
 }
 
+#include <QtCore>
+#include <QVideoFrame>
+#include <QAudioOutput>
 
 class QmlAVVideoFormat
 {

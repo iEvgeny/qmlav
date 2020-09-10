@@ -1,16 +1,17 @@
 #ifndef QMLAVDECODER_H
 #define QMLAVDECODER_H
 
-#include <QtCore>
-#include <QVideoSurfaceFormat>
-#include <QAudioOutput>
-
-#include "qmlavframe.h"
-
 extern "C" {
     #include <libavformat/avformat.h>
     #include <libavcodec/avcodec.h>
 }
+
+#include <QtCore>
+#include <QVideoSurfaceFormat>
+#include <QAudioOutput>
+
+#include "qmlavutils.h"
+#include "qmlavframe.h"
 
 class QmlAVDecoder : public QObject
 {

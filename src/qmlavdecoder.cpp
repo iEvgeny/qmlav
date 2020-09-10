@@ -23,26 +23,36 @@ QmlAVDecoder::~QmlAVDecoder()
 
 bool QmlAVDecoder::openCodec(AVStream *stream)
 {
+    int ret;
+
     if (m_avCodecCtx || stream == nullptr) {
         return false;
     }
 
     AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
     if (codec == NULL) {
+        QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())), "Unable find decoder");
         return false;
     }
 
     m_avCodecCtx = avcodec_alloc_context3(codec);
     if (!m_avCodecCtx) {
+        QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())), "Unable allocate codec context");
         return false;
     }
 
-    if (avcodec_parameters_to_context(m_avCodecCtx, stream->codecpar) < 0) {
+    ret = avcodec_parameters_to_context(m_avCodecCtx, stream->codecpar);
+    if (ret < 0) {
+        QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
+                             QString("Unable fill codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         closeCodec();
         return false;
     }
 
-    if (avcodec_open2(m_avCodecCtx, codec, NULL) < 0) {
+    ret = avcodec_open2(m_avCodecCtx, codec, NULL);
+    if (ret  < 0) {
+        QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
+                             QString("Unable initialize codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         closeCodec();
         return false;
     }
@@ -113,6 +123,8 @@ bool QmlAVDecoder::decode(const AVPacket &packet)
     // Submit the packet to the decoder
     ret = avcodec_send_packet(m_avCodecCtx, &packet);
     if (ret < 0) {
+        QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
+                             QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         return false;
     }
 
@@ -124,6 +136,9 @@ bool QmlAVDecoder::decode(const AVPacket &packet)
             // frame available, but there were no errors during decoding
             if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN))
                 return true;
+
+            QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
+                                 QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
             return false;
         }
 

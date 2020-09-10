@@ -184,6 +184,9 @@ bool QmlAVPlayer::load()
 
 void QmlAVPlayer::stateMachine()
 {
+    QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer),
+                         QString("QmlAVPlayer::stateMachine() => %2:%3").arg(m_status).arg(m_playbackState));
+
     if (m_playbackState == QMediaPlayer::PlayingState && m_status == QMediaPlayer::BufferedMedia) {
         if (m_videoSurface && !m_videoSurface->isActive() && m_videoFormat.isValid()) {
             m_videoFormat = m_videoSurface->nearestFormat(m_videoFormat);
@@ -191,8 +194,7 @@ void QmlAVPlayer::stateMachine()
                 m_videoSurface->start(m_videoFormat);
                 setHasVideo(true);
             } else {
-                QTextStream cerr(stderr);
-                cerr << "Invalid surface format!\n";
+                QmlAVUtils::logError(QmlAVUtils::logId(m_demuxer), "Invalid surface format!");
                 stop();
             }
         }
@@ -209,7 +211,7 @@ void QmlAVPlayer::stateMachine()
         }
     } else if (m_playbackState == QMediaPlayer::PausedState) {
         // TODO: Implement it
-        qDebug() << QString("%1:%2 Not implemented!").arg(__FILE__).arg(__LINE__);
+        QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer), QString("%1:%2 Not implemented!").arg(__FILE__).arg(__LINE__));
     } else if (m_playbackState == QMediaPlayer::StoppedState) {
         switch (m_status) {
         case QMediaPlayer::NoMedia:
