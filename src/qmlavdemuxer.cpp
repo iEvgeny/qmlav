@@ -199,11 +199,11 @@ void QmlAVDemuxer::run()
     // NOTE: We do not use buffering and video/audio sync to reduce latency
     setStatus(QMediaPlayer::BufferedMedia);
 
-    QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run(1)"));
-
     qint64 startTime = av_gettime();
     m_videoDecoder.setStartTime(startTime);
     m_audioDecoder.setStartTime(startTime);
+
+    QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { startTime=%1 }").arg(startTime));
 
     while (!isInterruptionRequested() || m_playbackState == QMediaPlayer::PlayingState) {
         if (!m_formatCtx) {
@@ -269,7 +269,7 @@ void QmlAVDemuxer::run()
         av_packet_unref(&m_packet);
     }
 
-    QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run(2)"));
+    QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { m_videoDecoder.clock()->%1 }").arg(m_videoDecoder.clock()));
 }
 
 bool QmlAVDemuxer::isRealtime(QUrl url)
@@ -334,6 +334,9 @@ bool QmlAVDemuxer::findStreams()
     if (m_videoStreams.isEmpty() && m_audioStreams.isEmpty()) {
         return false;
     }
+
+    QmlAVUtils::logDebug(QmlAVUtils::logId(this),
+                         QString("Found %1 video and %1 audio streams").arg(m_videoStreams.count()).arg(m_audioStreams.count()));
 
     return true;
 }

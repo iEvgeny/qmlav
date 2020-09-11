@@ -41,16 +41,16 @@ void QmlAVPlayer::play()
 
 void QmlAVPlayer::stop()
 {
+    setPlaybackState(QMediaPlayer::StoppedState);
+    setHasVideo(false);
+    setHasAudio(false);
+
     if (m_demuxer) {
         m_demuxer->requestInterruption();
         m_demuxer->disconnect();
         m_demuxer->deleteLater();
         m_demuxer = nullptr;
     }
-
-    setPlaybackState(QMediaPlayer::StoppedState);
-    setHasVideo(false);
-    setHasAudio(false);
 
     if (m_videoSurface && m_videoSurface->isActive()) {
         m_videoSurface->stop();
@@ -185,7 +185,7 @@ bool QmlAVPlayer::load()
 void QmlAVPlayer::stateMachine()
 {
     QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer),
-                         QString("QmlAVPlayer::stateMachine() => %2:%3").arg(m_status).arg(m_playbackState));
+                         QString("QmlAVPlayer::stateMachine() : { m_status=%2; m_playbackState=%3 }").arg(m_status).arg(m_playbackState));
 
     if (m_playbackState == QMediaPlayer::PlayingState && m_status == QMediaPlayer::BufferedMedia) {
         if (m_videoSurface && !m_videoSurface->isActive() && m_videoFormat.isValid()) {
@@ -302,6 +302,8 @@ void QmlAVPlayer::setHasVideo(bool hasVideo)
 
     m_hasVideo = hasVideo;
 
+    QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::setHasVideo(%1)").arg(m_hasVideo));
+
     emit hasVideoChanged(m_hasVideo);
 }
 
@@ -312,6 +314,8 @@ void QmlAVPlayer::setHasAudio(bool hasAudio)
     }
 
     m_hasAudio = hasAudio;
+
+    QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::setHasAudio(%1)").arg(m_hasAudio));
 
     emit hasAudioChanged(m_hasAudio);
 }
