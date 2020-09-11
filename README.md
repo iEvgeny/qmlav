@@ -44,7 +44,7 @@ Item {
         autoPlay: true
         source: rtmp://example.ru/stream/name
 
-        ffmpegFormatOptions: {
+        avFormatOptions: {
             'probesize': 500000,  // 500 KB
             'analyzeduration': 0  // 0 µs
         }
