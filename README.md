@@ -42,6 +42,7 @@ Item {
         id: qmlAvPlayer
 
         autoPlay: true
+        loops: MediaPlayer.Infinite
         source: rtmp://example.ru/stream/name
 
         avFormatOptions: {
