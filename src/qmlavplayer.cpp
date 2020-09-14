@@ -236,11 +236,13 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
     if (m_playbackState == QMediaPlayer::PlayingState) {
         if (frame->type() == QmlAVFrame::TypeVideo) {
             if (m_videoSurface && frame->isValid()) {
-                m_videoSurface->present(std::static_pointer_cast<QmlAVVideoFrame>(frame)->toVideoFrame());
+                bool ret = m_videoSurface->present(std::static_pointer_cast<QmlAVVideoFrame>(frame)->toVideoFrame());
+                QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::frameHandler() : { m_videoSurface->present() -> %1 }").arg(ret));
             }
         } else if (frame->type() == QmlAVFrame::TypeAudio) {
             if (m_audioOutput && frame->isValid()) {
                 m_audioQueue.push(std::static_pointer_cast<QmlAVAudioFrame>(frame));
+                QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::frameHandler() : { m_audioQueue.push() }"));
             }
         }
     }

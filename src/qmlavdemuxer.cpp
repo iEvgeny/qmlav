@@ -203,7 +203,8 @@ void QmlAVDemuxer::run()
     m_videoDecoder.setStartTime(startTime);
     m_audioDecoder.setStartTime(startTime);
 
-    QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { startTime=%1 }").arg(startTime));
+    QmlAVUtils::logDebug(QmlAVUtils::logId(this),
+                         QString("QmlAVDemuxer::run() : { startTime=%1; m_videoDecoder.timeBase()->%2 }").arg(startTime).arg(m_videoDecoder.timeBase()));
 
     while (!isInterruptionRequested() || m_playbackState == QMediaPlayer::PlayingState) {
         if (!m_formatCtx) {
@@ -236,6 +237,9 @@ void QmlAVDemuxer::run()
                 break;
             }
 
+            QmlAVUtils::logDebug(QmlAVUtils::logId(this),
+                                 QString("QmlAVDemuxer::run() : { Loop of message queue depth: m_handledTime=%1; m_lastTime=%2 }").arg(m_handledTime).arg(m_lastTime));
+
             QThread::usleep(qMax(m_videoDecoder.timeBase(), 100.0));
             QCoreApplication::processEvents();
         }
@@ -249,6 +253,9 @@ void QmlAVDemuxer::run()
                     QThread::usleep(m_videoDecoder.timeBase());
                 }
             }
+
+            QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { m_videoDecoder.clock()->%1 }").arg(m_videoDecoder.clock()));
+
         } else if (m_packet.stream_index == m_audioDecoder.streamIndex()) {
             m_audioDecoder.decode(m_packet);
             m_lastTime = m_audioDecoder.frameStartTime();
@@ -258,7 +265,11 @@ void QmlAVDemuxer::run()
                     QThread::usleep(m_audioDecoder.timeBase());
                 }
             }
+
+            QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { m_audioDecoder.clock()->%1 }").arg(m_audioDecoder.clock()));
+
         } else {
+            QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { QThread::usleep(1) }"));
             QThread::usleep(1);
         }
 
@@ -268,8 +279,6 @@ void QmlAVDemuxer::run()
 
         av_packet_unref(&m_packet);
     }
-
-    QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { m_videoDecoder.clock()->%1 }").arg(m_videoDecoder.clock()));
 }
 
 bool QmlAVDemuxer::isRealtime(QUrl url)
@@ -336,7 +345,7 @@ bool QmlAVDemuxer::findStreams()
     }
 
     QmlAVUtils::logDebug(QmlAVUtils::logId(this),
-                         QString("Found %1 video and %1 audio streams").arg(m_videoStreams.count()).arg(m_audioStreams.count()));
+                         QString("Found %1 video and %2 audio streams").arg(m_videoStreams.count()).arg(m_audioStreams.count()));
 
     return true;
 }
