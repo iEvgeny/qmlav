@@ -50,7 +50,6 @@ public slots:
     void load(const QUrl &url, const QVariantMap &formatOptions);
     void setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats);
     void run();
-    void setHandledTime(qint64 time) { m_handledTime = time; }
 
 signals:
     void videoFormatChanged(const QVideoSurfaceFormat &format);
@@ -68,7 +67,6 @@ protected:
 
 private:
     bool m_realtime;
-    qint64 m_handledTime;
     AVFormatContext *m_formatCtx;
     QmlAVInterruptCallback m_interruptCallback;
     QList<AVStream*> m_videoStreams, m_audioStreams;

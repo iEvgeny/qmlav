@@ -41,7 +41,6 @@ int QmlAVInterruptCallback::handler(void *obj)
 QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     : QObject(parent),
       m_realtime(false),
-      m_handledTime(0),
       m_formatCtx(nullptr),
       m_videoDecoder(this),
       m_audioDecoder(this),
@@ -238,7 +237,7 @@ void QmlAVDemuxer::run()
             timeBase = m_videoDecoder.timeBase();
 
             logDebug(QmlAVUtils::logId(this),
-                     QString("QmlAVDemuxer::run() : { m_videoDecoder.clock()->%1; Δ=>%2 }").arg(clock).arg(clock - av_gettime()));
+                     QString("QmlAVDemuxer::run() : { m_videoDecoder.clock()->%1; Δ=%2 }").arg(clock).arg(clock - av_gettime()));
 
         } else if (m_packet.stream_index == m_audioDecoder.streamIndex()) {
             m_audioDecoder.decode(m_packet);
@@ -248,10 +247,10 @@ void QmlAVDemuxer::run()
             }
 
             logDebug(QmlAVUtils::logId(this),
-                     QString("QmlAVDemuxer::run() : { m_audioDecoder.clock()->%1; Δ=>%2 }").arg(clock).arg(clock - av_gettime()));
+                     QString("QmlAVDemuxer::run() : { m_audioDecoder.clock()->%1; Δ=%2 }").arg(clock).arg(clock - av_gettime()));
 
         } else {
-            logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { QThread::usleep(1) }"));
+            logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { QThread::usleep(1); av_gettime()->%1 }").arg(av_gettime()));
             QThread::usleep(1);
         }
 
@@ -270,26 +269,7 @@ void QmlAVDemuxer::run()
 
             if (count > 0) {
                 logDebug(QmlAVUtils::logId(this),
-                         QString("QmlAVDemuxer::run() : { Loop of local playback sync: count=(%1); m_handledTime=%2; clock=%3 }").arg(count).arg(m_handledTime).arg(clock));
-            }
-        }
-
-        // Protection of message queue depth (total memory usage)
-        count = 0;
-        if (m_handledTime > 0) {
-            while (m_handledTime + MAX_QUEUE_DEPTH < clock && count < 1000) {
-                if (isInterruptionRequested()) {
-                    break;
-                }
-
-                QThread::usleep(qMax(timeBase, 100.0));
-                QCoreApplication::processEvents();
-                ++count;
-            }
-
-            if (count > 0) {
-                logDebug(QmlAVUtils::logId(this),
-                         QString("QmlAVDemuxer::run() : { Loop of message queue depth: count=(%1); m_handledTime=%2; clock=%3 }").arg(count).arg(m_handledTime).arg(clock));
+                         QString("QmlAVDemuxer::run() : { Loop of local playback sync: count=(%1); clock=%2 }").arg(count).arg(clock));
             }
         }
 

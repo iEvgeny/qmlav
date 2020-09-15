@@ -73,7 +73,6 @@ signals:
     void demuxerLoad(const QUrl &source, const QVariantMap &formatOptions = QVariantMap());
     void demuxerSetSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats);
     void demuxerStart();
-    void demuxerSetHandledTime(qint64 pos);
 
     void autoLoadChanged(bool autoLoad);
     void autoPlayChanged(bool autoPlay);

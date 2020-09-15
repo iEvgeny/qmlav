@@ -163,7 +163,6 @@ bool QmlAVPlayer::load()
         connect(this, &QmlAVPlayer::demuxerLoad, m_demuxer, &QmlAVDemuxer::load);
         connect(this, &QmlAVPlayer::demuxerSetSupportedPixelFormats, m_demuxer, &QmlAVDemuxer::setSupportedPixelFormats);
         connect(this, &QmlAVPlayer::demuxerStart, m_demuxer, &QmlAVDemuxer::run);
-        connect(this, &QmlAVPlayer::demuxerSetHandledTime, m_demuxer, &QmlAVDemuxer::setHandledTime);
 
         connect(m_demuxer, &QmlAVDemuxer::frameFinished, this, &QmlAVPlayer::frameHandler);
         connect(m_demuxer, &QmlAVDemuxer::videoFormatChanged, this, &QmlAVPlayer::setVideoFormat);
@@ -231,8 +230,6 @@ void QmlAVPlayer::stateMachine()
 
 void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
 {
-    emit demuxerSetHandledTime(frame->startTime());
-
     if (m_playbackState == QMediaPlayer::PlayingState) {
         if (frame->type() == QmlAVFrame::TypeVideo) {
             if (m_videoSurface && frame->isValid()) {
