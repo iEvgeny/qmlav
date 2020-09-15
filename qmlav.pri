@@ -1,3 +1,5 @@
+#DEFINES += NO_DEBUG
+
 HEADERS += \
     $$PWD/src/qmlavaudioqueue.h \
     $$PWD/src/qmlavdecoder.h \

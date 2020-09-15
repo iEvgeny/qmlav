@@ -68,7 +68,6 @@ protected:
 
 private:
     bool m_realtime;
-    qint64 m_lastTime;
     qint64 m_handledTime;
     AVFormatContext *m_formatCtx;
     QmlAVInterruptCallback m_interruptCallback;

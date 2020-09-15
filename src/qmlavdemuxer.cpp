@@ -41,7 +41,6 @@ int QmlAVInterruptCallback::handler(void *obj)
 QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     : QObject(parent),
       m_realtime(false),
-      m_lastTime(0),
       m_handledTime(0),
       m_formatCtx(nullptr),
       m_videoDecoder(this),
@@ -53,7 +52,7 @@ QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     connect(&m_videoDecoder, &QmlAVVideoDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
     connect(&m_audioDecoder, &QmlAVAudioDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
 
-    QmlAVUtils::logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::QmlAVDemuxer()");
+    logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::QmlAVDemuxer()");
 }
 
 QmlAVDemuxer::~QmlAVDemuxer()
@@ -64,7 +63,7 @@ QmlAVDemuxer::~QmlAVDemuxer()
         avformat_close_input(&m_formatCtx);
     }
 
-    QmlAVUtils::logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::~QmlAVDemuxer()");
+    logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::~QmlAVDemuxer()");
 }
 
 void QmlAVDemuxer::requestInterruption()
@@ -72,7 +71,7 @@ void QmlAVDemuxer::requestInterruption()
     m_interruptCallback.requestInterruption();
     m_interruptionRequested = true;
 
-    QmlAVUtils::logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::requestInterruption()");
+    logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::requestInterruption()");
 }
 
 void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
@@ -86,7 +85,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     }
 
     if (source.isEmpty()) {
-        QmlAVUtils::logVerbose(QmlAVUtils::logId(this), QString("Source is emty!"));
+        logVerbose(QmlAVUtils::logId(this), QString("Source is emty!"));
         setStatus(QMediaPlayer::NoMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
         return;
@@ -108,7 +107,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     while (i.hasNext()) {
         i.next();
         av_dict_set(&avFormatOptions, i.key().toUtf8(), i.value().toString().toUtf8(), 0);
-        QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("Added AVFormat option: -%1 %2").arg(i.key()).arg(i.value().toString()));
+        logDebug(QmlAVUtils::logId(this), QString("Added AVFormat option: -%1 %2").arg(i.key()).arg(i.value().toString()));
     }
 
     setStatus(QMediaPlayer::LoadingMedia);
@@ -120,7 +119,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     m_interruptCallback.startTimer();
     ret = avformat_open_input(&m_formatCtx, source.toUtf8(), nullptr, &avFormatOptions);
     if (ret < 0) {
-        QmlAVUtils::logError(QmlAVUtils::logId(this),
+        logError(QmlAVUtils::logId(this),
                              QString("Unable to open input file: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         setStatus(QMediaPlayer::InvalidMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
@@ -131,7 +130,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     m_interruptCallback.startTimer();
     ret = avformat_find_stream_info(m_formatCtx, nullptr);
     if (ret < 0) {
-        QmlAVUtils::logError(QmlAVUtils::logId(this),
+        logError(QmlAVUtils::logId(this),
                              QString("Cannot find stream information: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         setStatus(QMediaPlayer::InvalidMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
@@ -144,7 +143,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     }
 
     if (!findStreams()) {
-        QmlAVUtils::logError(QmlAVUtils::logId(this), QString("Unable find valid stream"));
+        logError(QmlAVUtils::logId(this), QString("Unable find valid stream"));
         setStatus(QMediaPlayer::InvalidMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
         return;
@@ -159,7 +158,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
         m_audioDecoder.openCodec(m_audioStreams.value(0));
     }
     if (!m_videoDecoder.codecIsOpen() && !m_audioDecoder.codecIsOpen()) {
-        QmlAVUtils::logError(QmlAVUtils::logId(this), QString("Unable open any codec"));
+        logError(QmlAVUtils::logId(this), QString("Unable open any codec"));
         setStatus(QMediaPlayer::InvalidMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
         return;
@@ -171,7 +170,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
 
     setStatus(QMediaPlayer::LoadedMedia);
 
-    QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("Media loaded successfully!"));
+    logDebug(QmlAVUtils::logId(this), QString("Media loaded successfully!"));
 
     av_dict_free(&avFormatOptions);
 }
@@ -189,6 +188,8 @@ void QmlAVDemuxer::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat
 void QmlAVDemuxer::run()
 {
     int ret;
+    qint64 clock = 0;
+    double timeBase = 0;
 
     if (m_playbackState != QMediaPlayer::StoppedState || m_status != QMediaPlayer::LoadedMedia) {
         return;
@@ -196,14 +197,14 @@ void QmlAVDemuxer::run()
 
     setPlaybackState(QMediaPlayer::PlayingState);
 
-    // NOTE: We do not use buffering and video/audio sync to reduce latency
+    // NOTE: We do not use buffering to reduce latency
     setStatus(QMediaPlayer::BufferedMedia);
 
     qint64 startTime = av_gettime();
     m_videoDecoder.setStartTime(startTime);
     m_audioDecoder.setStartTime(startTime);
 
-    QmlAVUtils::logDebug(QmlAVUtils::logId(this),
+    logDebug(QmlAVUtils::logId(this),
                          QString("QmlAVDemuxer::run() : { startTime=%1; m_videoDecoder.timeBase()->%2 }").arg(startTime).arg(m_videoDecoder.timeBase()));
 
     while (!isInterruptionRequested() || m_playbackState == QMediaPlayer::PlayingState) {
@@ -219,10 +220,10 @@ void QmlAVDemuxer::run()
         ret = av_read_frame(m_formatCtx, &m_packet);
         if (ret < 0) {
             if (ret == AVERROR_EOF) {
-                QmlAVUtils::logVerbose(QmlAVUtils::logId(this), QString("End of media"));
+                logVerbose(QmlAVUtils::logId(this), QString("End of media"));
                 setStatus(QMediaPlayer::EndOfMedia);
             } else {
-                QmlAVUtils::logError(QmlAVUtils::logId(this), QString("Unable read frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
+                logError(QmlAVUtils::logId(this), QString("Unable read frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
                 setStatus(QMediaPlayer::StalledMedia);
             }
             setPlaybackState(QMediaPlayer::StoppedState);
@@ -231,46 +232,65 @@ void QmlAVDemuxer::run()
         }
         m_interruptCallback.stopTimer();
 
-        // Protection of message queue depth (total memory usage)
-        while (m_handledTime + MAX_QUEUE_DEPTH < m_lastTime) {
-            if (isInterruptionRequested()) {
-                break;
-            }
-
-            QmlAVUtils::logDebug(QmlAVUtils::logId(this),
-                                 QString("QmlAVDemuxer::run() : { Loop of message queue depth: m_handledTime=%1; m_lastTime=%2 }").arg(m_handledTime).arg(m_lastTime));
-
-            QThread::usleep(qMax(m_videoDecoder.timeBase(), 100.0));
-            QCoreApplication::processEvents();
-        }
-
         if (m_packet.stream_index == m_videoDecoder.streamIndex()) {
             m_videoDecoder.decode(m_packet);
-            m_lastTime = m_videoDecoder.frameStartTime();
-            // TODO: Temporary implementation
-            if (!m_realtime) {
-                while (m_videoDecoder.clock() > av_gettime()) {
-                    QThread::usleep(m_videoDecoder.timeBase());
-                }
-            }
+            clock = m_videoDecoder.clock();
+            timeBase = m_videoDecoder.timeBase();
 
-            QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { m_videoDecoder.clock()->%1 }").arg(m_videoDecoder.clock()));
+            logDebug(QmlAVUtils::logId(this),
+                     QString("QmlAVDemuxer::run() : { m_videoDecoder.clock()->%1; Δ=>%2 }").arg(clock).arg(clock - av_gettime()));
 
         } else if (m_packet.stream_index == m_audioDecoder.streamIndex()) {
             m_audioDecoder.decode(m_packet);
-            m_lastTime = m_audioDecoder.frameStartTime();
-            // TODO: Temporary implementation
-            if (!m_realtime && !m_videoDecoder.codecIsOpen()) {
-                while (m_audioDecoder.clock() > av_gettime()) {
-                    QThread::usleep(m_audioDecoder.timeBase());
-                }
+            if (!m_videoDecoder.codecIsOpen()) {
+                clock = m_audioDecoder.clock();
+                timeBase = m_audioDecoder.timeBase();
             }
 
-            QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { m_audioDecoder.clock()->%1 }").arg(m_audioDecoder.clock()));
+            logDebug(QmlAVUtils::logId(this),
+                     QString("QmlAVDemuxer::run() : { m_audioDecoder.clock()->%1; Δ=>%2 }").arg(clock).arg(clock - av_gettime()));
 
         } else {
-            QmlAVUtils::logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { QThread::usleep(1) }"));
+            logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { QThread::usleep(1) }"));
             QThread::usleep(1);
+        }
+
+        // Primitive syncing for local playback
+        int count = 0;
+        if (!m_realtime) {
+            while (clock - timeBase > av_gettime()) {
+                if (isInterruptionRequested()) {
+                    break;
+                }
+
+                QThread::usleep(timeBase);
+                QCoreApplication::processEvents();
+                ++count;
+            }
+
+            if (count > 0) {
+                logDebug(QmlAVUtils::logId(this),
+                         QString("QmlAVDemuxer::run() : { Loop of local playback sync: count=(%1); m_handledTime=%2; clock=%3 }").arg(count).arg(m_handledTime).arg(clock));
+            }
+        }
+
+        // Protection of message queue depth (total memory usage)
+        count = 0;
+        if (m_handledTime > 0) {
+            while (m_handledTime + MAX_QUEUE_DEPTH < clock && count < 1000) {
+                if (isInterruptionRequested()) {
+                    break;
+                }
+
+                QThread::usleep(qMax(timeBase, 100.0));
+                QCoreApplication::processEvents();
+                ++count;
+            }
+
+            if (count > 0) {
+                logDebug(QmlAVUtils::logId(this),
+                         QString("QmlAVDemuxer::run() : { Loop of message queue depth: count=(%1); m_handledTime=%2; clock=%3 }").arg(count).arg(m_handledTime).arg(clock));
+            }
         }
 
 #ifndef Q_OS_ANDROID
@@ -344,7 +364,7 @@ bool QmlAVDemuxer::findStreams()
         return false;
     }
 
-    QmlAVUtils::logDebug(QmlAVUtils::logId(this),
+    logDebug(QmlAVUtils::logId(this),
                          QString("Found %1 video and %2 audio streams").arg(m_videoStreams.count()).arg(m_audioStreams.count()));
 
     return true;

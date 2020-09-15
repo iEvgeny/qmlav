@@ -30,7 +30,7 @@ public:
     void setStartTime(qint64 startTime) { m_startTime = startTime; }
     qint64 frameStartTime();
 
-    bool decode(const AVPacket &packet);
+    int decode(const AVPacket &packet);
 
 signals:
     void frameFinished(const std::shared_ptr<QmlAVFrame> frame);

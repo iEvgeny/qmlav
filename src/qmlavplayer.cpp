@@ -184,7 +184,7 @@ bool QmlAVPlayer::load()
 
 void QmlAVPlayer::stateMachine()
 {
-    QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer),
+    logDebug(QmlAVUtils::logId(m_demuxer),
                          QString("QmlAVPlayer::stateMachine() : { m_status=%2; m_playbackState=%3 }").arg(m_status).arg(m_playbackState));
 
     if (m_playbackState == QMediaPlayer::PlayingState && m_status == QMediaPlayer::BufferedMedia) {
@@ -194,7 +194,7 @@ void QmlAVPlayer::stateMachine()
                 m_videoSurface->start(m_videoFormat);
                 setHasVideo(true);
             } else {
-                QmlAVUtils::logError(QmlAVUtils::logId(m_demuxer), "Invalid surface format!");
+                logError(QmlAVUtils::logId(m_demuxer), "Invalid surface format!");
                 stop();
             }
         }
@@ -211,7 +211,7 @@ void QmlAVPlayer::stateMachine()
         }
     } else if (m_playbackState == QMediaPlayer::PausedState) {
         // TODO: Implement it
-        QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer), QString("%1:%2 Not implemented!").arg(__FILE__).arg(__LINE__));
+        logDebug(QmlAVUtils::logId(m_demuxer), QString("%1:%2 Not implemented!").arg(__FILE__).arg(__LINE__));
     } else if (m_playbackState == QMediaPlayer::StoppedState) {
         switch (m_status) {
         case QMediaPlayer::NoMedia:
@@ -237,12 +237,12 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
         if (frame->type() == QmlAVFrame::TypeVideo) {
             if (m_videoSurface && frame->isValid()) {
                 bool ret = m_videoSurface->present(std::static_pointer_cast<QmlAVVideoFrame>(frame)->toVideoFrame());
-                QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::frameHandler() : { m_videoSurface->present() -> %1 }").arg(ret));
+                logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::frameHandler() : { m_videoSurface->present()->%1 }").arg(ret));
             }
         } else if (frame->type() == QmlAVFrame::TypeAudio) {
             if (m_audioOutput && frame->isValid()) {
                 m_audioQueue.push(std::static_pointer_cast<QmlAVAudioFrame>(frame));
-                QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::frameHandler() : { m_audioQueue.push() }"));
+                logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::frameHandler() : { m_audioQueue.push() }"));
             }
         }
     }
@@ -304,7 +304,7 @@ void QmlAVPlayer::setHasVideo(bool hasVideo)
 
     m_hasVideo = hasVideo;
 
-    QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::setHasVideo(%1)").arg(m_hasVideo));
+    logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::setHasVideo(%1)").arg(m_hasVideo));
 
     emit hasVideoChanged(m_hasVideo);
 }
@@ -317,7 +317,7 @@ void QmlAVPlayer::setHasAudio(bool hasAudio)
 
     m_hasAudio = hasAudio;
 
-    QmlAVUtils::logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::setHasAudio(%1)").arg(m_hasAudio));
+    logDebug(QmlAVUtils::logId(m_demuxer), QString("QmlAVPlayer::setHasAudio(%1)").arg(m_hasAudio));
 
     emit hasAudioChanged(m_hasAudio);
 }

@@ -31,19 +31,19 @@ bool QmlAVDecoder::openCodec(AVStream *stream)
 
     AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
     if (codec == NULL) {
-        QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())), "Unable find decoder");
+        logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())), "Unable find decoder");
         return false;
     }
 
     m_avCodecCtx = avcodec_alloc_context3(codec);
     if (!m_avCodecCtx) {
-        QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())), "Unable allocate codec context");
+        logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())), "Unable allocate codec context");
         return false;
     }
 
     ret = avcodec_parameters_to_context(m_avCodecCtx, stream->codecpar);
     if (ret < 0) {
-        QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
+        logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
                              QString("Unable fill codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         closeCodec();
         return false;
@@ -51,7 +51,7 @@ bool QmlAVDecoder::openCodec(AVStream *stream)
 
     ret = avcodec_open2(m_avCodecCtx, codec, NULL);
     if (ret  < 0) {
-        QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
+        logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
                              QString("Unable initialize codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         closeCodec();
         return false;
@@ -111,21 +111,21 @@ qint64 QmlAVDecoder::frameStartTime()
     return m_startTime + pts * timeBase();
 }
 
-// WARNING: We should always return false when signal the frameFinished is not emitted!
-bool QmlAVDecoder::decode(const AVPacket &packet)
+int QmlAVDecoder::decode(const AVPacket &packet)
 {
     int ret;
+    int count = 0;
 
     if (!m_avCodecCtx) {
-        return false;
+        return 0;
     }
 
     // Submit the packet to the decoder
     ret = avcodec_send_packet(m_avCodecCtx, &packet);
     if (ret < 0) {
-        QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
+        logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
                              QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
-        return false;
+        return 0;
     }
 
     // Get all the available frames from the decoder
@@ -134,20 +134,20 @@ bool QmlAVDecoder::decode(const AVPacket &packet)
         if (ret < 0) {
             // Those two return values are special and mean there is no output
             // frame available, but there were no errors during decoding
-            if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN))
-                return true;
+            if (ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
+                logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
+                                     QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
+            }
 
-            QmlAVUtils::logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
-                                 QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
-            return false;
+            return count;
         }
 
         emit frameFinished(frame());
-
         av_frame_unref(m_avFrame);
+        ++count;
     }
 
-    return true;
+    return count;
 }
 
 qint64 QmlAVDecoder::startPts() const

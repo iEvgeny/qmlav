@@ -28,4 +28,14 @@ public:
     static QString logId(const QmlAVDemuxer *p);
 };
 
+#define logError(id, message) QmlAVUtils::log(id, QmlAVUtils::LogError, message)
+#define logInfo(id, message) QmlAVUtils::log(id, QmlAVUtils::LogInfo, message)
+#define logVerbose(id, message) QmlAVUtils::log(id, QmlAVUtils::LogVerbose, message)
+
+#ifdef NO_DEBUG
+    #define logDebug(id, message) (void)id; (void)message;
+#else
+    #define logDebug(id, message) QmlAVUtils::log(id, QmlAVUtils::LogDebug, message)
+#endif
+
 #endif // QMLAVUTILS_H
