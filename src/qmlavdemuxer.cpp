@@ -182,8 +182,6 @@ void QmlAVDemuxer::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat
     }
 }
 
-#define MAX_QUEUE_DEPTH (3000000)  // 3 sec.
-
 void QmlAVDemuxer::run()
 {
     int ret;
