@@ -48,9 +48,6 @@ QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
       m_status(QMediaPlayer::UnknownMediaStatus),
       m_interruptionRequested(false)
 {
-    connect(&m_videoDecoder, &QmlAVVideoDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
-    connect(&m_audioDecoder, &QmlAVAudioDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
-
     logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::QmlAVDemuxer()");
 }
 
@@ -150,11 +147,19 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
 
     if (m_videoStreams.count() > 0) {
         // Open first video stream
-        m_videoDecoder.openCodec(m_videoStreams.value(0));
+        if (m_videoDecoder.openCodec(m_videoStreams.value(0))) {
+            m_videoDecoder.setStartTime(av_gettime());
+
+            logDebug(QmlAVUtils::logId(this), QString("m_videoDecoder.openCodec()->true : { m_videoDecoder.startTime()->%1 }").arg(m_videoDecoder.startTime()));
+        }
     }
     if (m_audioStreams.count() > 0) {
         // Open first audio stream
-        m_audioDecoder.openCodec(m_audioStreams.value(0));
+        if (m_audioDecoder.openCodec(m_audioStreams.value(0))) {
+            m_audioDecoder.setStartTime(av_gettime());
+
+            logDebug(QmlAVUtils::logId(this), QString("m_audioDecoder.openCodec()->true : { m_audioDecoder.startTime()->%1 }").arg(m_audioDecoder.startTime()));
+        }
     }
     if (!m_videoDecoder.codecIsOpen() && !m_audioDecoder.codecIsOpen()) {
         logError(QmlAVUtils::logId(this), QString("Unable open any codec"));
@@ -185,6 +190,7 @@ void QmlAVDemuxer::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat
 void QmlAVDemuxer::run()
 {
     int ret;
+    AVPacket avPacket;
     qint64 clock = 0;
     double timeBase = 0;
 
@@ -197,24 +203,25 @@ void QmlAVDemuxer::run()
     // NOTE: We do not use buffering to reduce latency
     setStatus(QMediaPlayer::BufferedMedia);
 
-    qint64 startTime = av_gettime();
-    m_videoDecoder.setStartTime(startTime);
-    m_audioDecoder.setStartTime(startTime);
+    if (m_videoDecoder.codecIsOpen()) {
+        timeBase = m_videoDecoder.timeBase();
+    } else {
+        timeBase = m_audioDecoder.timeBase();
+    }
 
-    logDebug(QmlAVUtils::logId(this),
-                         QString("QmlAVDemuxer::run() : { startTime=%1; m_videoDecoder.timeBase()->%2 }").arg(startTime).arg(m_videoDecoder.timeBase()));
+    logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { timeBase=%1 }").arg(timeBase));
+
+    av_init_packet(&avPacket);
+    avPacket.data = nullptr;
+    avPacket.size = 0;
 
     while (!isInterruptionRequested() || m_playbackState == QMediaPlayer::PlayingState) {
         if (!m_formatCtx) {
             break;
         }
 
-        av_init_packet(&m_packet);
-        m_packet.data = nullptr;
-        m_packet.size = 0;
-
         m_interruptCallback.startTimer();
-        ret = av_read_frame(m_formatCtx, &m_packet);
+        ret = av_read_frame(m_formatCtx, &avPacket);
         if (ret < 0) {
             if (ret == AVERROR_EOF) {
                 logVerbose(QmlAVUtils::logId(this), QString("End of media"));
@@ -224,24 +231,22 @@ void QmlAVDemuxer::run()
                 setStatus(QMediaPlayer::StalledMedia);
             }
             setPlaybackState(QMediaPlayer::StoppedState);
-            av_packet_unref(&m_packet); // Important!
+            av_packet_unref(&avPacket); // Important!
             break;
         }
         m_interruptCallback.stopTimer();
 
-        if (m_packet.stream_index == m_videoDecoder.streamIndex()) {
-            m_videoDecoder.decode(m_packet);
+        if (avPacket.stream_index == m_videoDecoder.streamIndex()) {
+            m_videoDecoder.decodeAVPacket(avPacket);
             clock = m_videoDecoder.clock();
-            timeBase = m_videoDecoder.timeBase();
 
             logDebug(QmlAVUtils::logId(this),
                      QString("QmlAVDemuxer::run() : { m_videoDecoder.clock()->%1; Δ=%2 }").arg(clock).arg(clock - av_gettime()));
 
-        } else if (m_packet.stream_index == m_audioDecoder.streamIndex()) {
-            m_audioDecoder.decode(m_packet);
+        } else if (avPacket.stream_index == m_audioDecoder.streamIndex()) {
+            m_audioDecoder.decodeAVPacket(avPacket);
             if (!m_videoDecoder.codecIsOpen()) {
                 clock = m_audioDecoder.clock();
-                timeBase = m_audioDecoder.timeBase();
             }
 
             logDebug(QmlAVUtils::logId(this),
@@ -255,7 +260,7 @@ void QmlAVDemuxer::run()
         // Primitive syncing for local playback
         int count = 0;
         if (!m_realtime) {
-            while (clock - timeBase > av_gettime()) {
+            while (clock > av_gettime()) {
                 if (isInterruptionRequested()) {
                     break;
                 }
@@ -275,7 +280,7 @@ void QmlAVDemuxer::run()
         QCoreApplication::processEvents();
 #endif
 
-        av_packet_unref(&m_packet);
+        av_packet_unref(&avPacket);
     }
 }
 

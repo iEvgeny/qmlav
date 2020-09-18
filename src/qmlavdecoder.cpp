@@ -1,31 +1,134 @@
 #include "qmlavdecoder.h"
+#include "qmlavdemuxer.h"
 
-QmlAVDecoder::QmlAVDecoder(QObject *parent)
+QmlAVDecoderWorker::QmlAVDecoderWorker(QmlAVDecoder *decoderCtx, QObject *parent)
     : QObject(parent),
-      m_ptsClock(0),
-      m_startTime(0),
-      m_avStream(nullptr),
-      m_avCodecCtx(nullptr),
+      m_decoderCtx(nullptr),
       m_avFrame(nullptr)
 {
     qRegisterMetaType<std::shared_ptr<QmlAVFrame>>();
+
+    m_decoderCtx = decoderCtx;
     m_avFrame = av_frame_alloc();
 }
 
-QmlAVDecoder::~QmlAVDecoder()
+QmlAVDecoderWorker::~QmlAVDecoderWorker()
 {
     if (m_avFrame) {
         av_frame_free(&m_avFrame);
     }
+}
 
-    closeCodec();
+void QmlAVDecoderWorker::decodeAVPacket(AVPacket avPacket)
+{
+    int ret;
+
+    if (m_decoderCtx) {
+        // Submit the packet to the decoder
+        ret = avcodec_send_packet(m_decoderCtx->m_avCodecCtx, &avPacket);
+        if (ret < 0) {
+            logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(m_decoderCtx->parent())),
+                     QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));  // TODO:
+        }
+
+        // Get all the available frames from the decoder
+        while (ret >= 0) {
+            ret = avcodec_receive_frame(m_decoderCtx->m_avCodecCtx, m_avFrame);
+            if (ret < 0) {
+                // Those two return values are special and mean there is no output
+                // frame available, but there were no errors during decoding
+                if (ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
+                    logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(m_decoderCtx->parent())),
+                             QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));  // TODO:
+                }
+
+                av_packet_unref(&avPacket);
+                return;
+            }
+
+            if (!QThread::currentThread()->isInterruptionRequested()) {
+                emit frameFinished(m_decoderCtx->frame(m_avFrame, frameStartTime()));
+            }
+
+            av_frame_unref(m_avFrame);
+
+            QCoreApplication::processEvents();
+        }
+    }
+
+    av_packet_unref(&avPacket);
+    return;
+}
+
+double QmlAVDecoderWorker::framePts()
+{
+    if (!m_decoderCtx) {
+        return 0;
+    }
+
+    double pts = m_avFrame->pkt_dts;
+    double timeBase = m_decoderCtx->m_timeBase;
+
+    if (pts == AV_NOPTS_VALUE) {
+        pts = m_avFrame->pts;
+    }
+    if (pts == AV_NOPTS_VALUE) {
+        pts = m_decoderCtx->m_ptsClock + timeBase;
+    }
+
+    pts += m_avFrame->repeat_pict * (timeBase * 0.5);
+    m_decoderCtx->m_ptsClock = pts;
+
+    return pts;
+}
+
+qint64 QmlAVDecoderWorker::frameStartTime()
+{
+    if (!m_decoderCtx) {
+        return 0;
+    }
+
+    double pts = framePts() - m_decoderCtx->m_startPts;
+    return m_decoderCtx->m_startTime + pts * m_decoderCtx->m_timeBase;  // Уже не тот стартрайм
+}
+
+QmlAVDecoder::QmlAVDecoder(QmlAVDemuxer *parent)
+    : QObject(parent),
+      m_worker(nullptr),
+      m_streamIndex(-1),
+      m_avCodecCtx(nullptr),
+      m_startTime(0),
+      m_startPts(0),
+      m_timeBase(0),
+      m_ptsClock(0)
+{
+    qRegisterMetaType<AVPacket>("AVPacket");
+
+    m_worker = new QmlAVDecoderWorker(this, nullptr);
+    m_worker->moveToThread(&m_thread);
+    connect(&m_thread, &QThread::finished, m_worker, &QObject::deleteLater);
+
+    connect(this, &QmlAVDecoder::workerDecodeAVPacket, m_worker, &QmlAVDecoderWorker::decodeAVPacket);
+
+    connect(m_worker, &QmlAVDecoderWorker::frameFinished, parent, &QmlAVDemuxer::frameFinished);
+}
+
+QmlAVDecoder::~QmlAVDecoder()
+{
+    m_thread.requestInterruption();
+    m_thread.quit();
+    m_thread.wait();
+
+    if (m_avCodecCtx) {
+        avcodec_free_context(&m_avCodecCtx);
+    }
 }
 
 bool QmlAVDecoder::openCodec(AVStream *stream)
 {
     int ret;
 
-    if (m_avCodecCtx || stream == nullptr) {
+    if (m_avCodecCtx || !stream) {
         return false;
     }
 
@@ -45,7 +148,6 @@ bool QmlAVDecoder::openCodec(AVStream *stream)
     if (ret < 0) {
         logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
                              QString("Unable fill codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
-        closeCodec();
         return false;
     }
 
@@ -53,23 +155,17 @@ bool QmlAVDecoder::openCodec(AVStream *stream)
     if (ret  < 0) {
         logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
                              QString("Unable initialize codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
-        closeCodec();
         return false;
     }
 
-    m_avStream = stream;
-    m_ptsClock = startPts();
+    m_streamIndex = stream->index;
+    m_startPts = (stream->start_time != AV_NOPTS_VALUE) ? stream->start_time : 0;
+    m_timeBase = av_q2d(stream->time_base);
+    m_ptsClock = m_startPts;
+
+    m_thread.start();
 
     return true;
-}
-
-void QmlAVDecoder::closeCodec()
-{
-    m_avStream = nullptr;
-
-    if (m_avCodecCtx) {
-        avcodec_free_context(&m_avCodecCtx);
-    }
 }
 
 bool QmlAVDecoder::codecIsOpen() const
@@ -81,107 +177,27 @@ bool QmlAVDecoder::codecIsOpen() const
     return false;
 }
 
-int QmlAVDecoder::streamIndex() const
-{
-    if (m_avStream) {
-        return m_avStream->index;
-    }
-
-    return -1;
-}
-
-qint64 QmlAVDecoder::clock() const
-{
-    double pts = m_ptsClock - startPts();
-    return m_startTime + pts * timeBase();
-}
-
 double QmlAVDecoder::timeBase() const
 {
-    if (!m_avStream) {
-        return 0;
-    }
-
-    return av_q2d(m_avStream->time_base) * 1000000;
+    return m_timeBase * 1000000;
 }
 
-qint64 QmlAVDecoder::frameStartTime()
+double QmlAVDecoder::clock() const
 {
-    double pts = framePts() - startPts();
+    double pts = m_ptsClock - m_startPts;
     return m_startTime + pts * timeBase();
 }
 
-int QmlAVDecoder::decode(const AVPacket &packet)
+void QmlAVDecoder::decodeAVPacket(AVPacket &avPacket)
 {
-    int ret;
-    int count = 0;
+    emit workerDecodeAVPacket(avPacket);
 
-    if (!m_avCodecCtx) {
-        return 0;
-    }
-
-    // Submit the packet to the decoder
-    ret = avcodec_send_packet(m_avCodecCtx, &packet);
-    if (ret < 0) {
-        logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
-                             QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
-        return 0;
-    }
-
-    // Get all the available frames from the decoder
-    while (ret >= 0) {
-        ret = avcodec_receive_frame(m_avCodecCtx, m_avFrame);
-        if (ret < 0) {
-            // Those two return values are special and mean there is no output
-            // frame available, but there were no errors during decoding
-            if (ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
-                logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
-                                     QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
-            }
-
-            return count;
-        }
-
-        emit frameFinished(frame());
-        av_frame_unref(m_avFrame);
-        ++count;
-    }
-
-    return count;
+    av_init_packet(&avPacket);
+    avPacket.data = nullptr;
+    avPacket.size = 0;
 }
 
-qint64 QmlAVDecoder::startPts() const
-{
-    if (!m_avStream || m_avStream->start_time == AV_NOPTS_VALUE) {
-        return 0;
-    }
-
-    return m_avStream->start_time;
-}
-
-double QmlAVDecoder::framePts()
-{
-    if (!m_avFrame || !m_avStream) {
-        return 0;
-    }
-
-    double pts = m_avFrame->pkt_dts;
-    double timeBase = av_q2d(m_avStream->time_base);
-
-    if (pts == AV_NOPTS_VALUE) {
-        pts = m_avFrame->pts;
-    }
-    if (pts == AV_NOPTS_VALUE) {
-        pts = m_ptsClock + timeBase;
-    }
-
-    pts += m_avFrame->repeat_pict * (timeBase * 0.5);
-    m_ptsClock = pts;
-
-    return pts;
-}
-
-QmlAVVideoDecoder::QmlAVVideoDecoder(QObject *parent)
+QmlAVVideoDecoder::QmlAVVideoDecoder(QmlAVDemuxer *parent)
     : QmlAVDecoder(parent),
       m_surfacePixelFormat(QVideoFrame::Format_Invalid)
 {
@@ -233,20 +249,20 @@ QSize QmlAVVideoDecoder::pixelAspectRatio() const
     return QSize(1, 1);
 }
 
-std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::frame()
+std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::frame(AVFrame *avFrame, qint64 startTime) const
 {
-    std::shared_ptr<QmlAVVideoFrame> vf(new QmlAVVideoFrame(frameStartTime()));
+    std::shared_ptr<QmlAVVideoFrame> vf(new QmlAVVideoFrame(startTime));
     vf->setPixelFormat(m_surfacePixelFormat);
-    vf->fromAVFrame(m_avFrame);
+    vf->fromAVFrame(avFrame);
     return vf;
 }
 
-QmlAVAudioDecoder::QmlAVAudioDecoder(QObject *parent)
+QmlAVAudioDecoder::QmlAVAudioDecoder(QmlAVDemuxer *parent)
     : QmlAVDecoder(parent)
 {
 }
 
-QAudioFormat QmlAVAudioDecoder::audioFormat()
+QAudioFormat QmlAVAudioDecoder::audioFormat() const
 {
     QAudioFormat format;
 
@@ -262,10 +278,10 @@ QAudioFormat QmlAVAudioDecoder::audioFormat()
     return  format;
 }
 
-std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::frame()
+std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::frame(AVFrame *avFrame, qint64 startTime) const
 {
-    std::shared_ptr<QmlAVAudioFrame> af(new QmlAVAudioFrame(frameStartTime()));
+    std::shared_ptr<QmlAVAudioFrame> af(new QmlAVAudioFrame(startTime));
     af->setAudioFormat(audioFormat());
-    af->fromAVFrame(m_avFrame);
+    af->fromAVFrame(avFrame);
     return af;
 }

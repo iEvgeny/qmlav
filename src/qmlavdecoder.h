@@ -13,40 +13,68 @@ extern "C" {
 #include "qmlavutils.h"
 #include "qmlavframe.h"
 
+class QmlAVDecoder;
+
+class QmlAVDecoderWorker : public QObject
+{
+    Q_OBJECT
+
+public:
+    QmlAVDecoderWorker(QmlAVDecoder *decoderCtx, QObject *parent = nullptr);
+    virtual ~QmlAVDecoderWorker();
+
+public slots:
+    void decodeAVPacket(AVPacket avPacket);
+
+signals:
+    void frameFinished(const std::shared_ptr<QmlAVFrame> frame);
+
+private:
+    double framePts();
+    qint64 frameStartTime();
+
+private:
+    QmlAVDecoder *m_decoderCtx;
+    AVFrame *m_avFrame;
+};
+
 class QmlAVDecoder : public QObject
 {
     Q_OBJECT
 
 public:
-    QmlAVDecoder(QObject *parent = nullptr);
+    QmlAVDecoder(QmlAVDemuxer *parent);
     virtual ~QmlAVDecoder();
 
     bool openCodec(AVStream *stream);
-    void closeCodec();
     bool codecIsOpen() const;
-    int streamIndex() const;
-    qint64 clock() const;
+    int streamIndex() const { return m_streamIndex; }
     double timeBase() const;
+    qint64 startTime() const { return m_startTime; }
     void setStartTime(qint64 startTime) { m_startTime = startTime; }
-    qint64 frameStartTime();
+    double clock() const;
 
-    int decode(const AVPacket &packet);
+    void decodeAVPacket(AVPacket &avPacket);
 
 signals:
-    void frameFinished(const std::shared_ptr<QmlAVFrame> frame);
+    void workerDecodeAVPacket(AVPacket avPacket);
 
 protected:
-    qint64 startPts() const;
-    double framePts();
-    virtual std::shared_ptr<QmlAVFrame> frame() = 0;
+    virtual std::shared_ptr<QmlAVFrame> frame(AVFrame *avFrame, qint64 startTime) const = 0;
 
 private:
-    double m_ptsClock; // Equivalent to the PTS of the current frame
-    qint64 m_startTime;
-    AVStream *m_avStream;
-    AVCodecContext *m_avCodecCtx;
-    AVFrame *m_avFrame;
+    QThread m_thread;
+    QmlAVDecoderWorker *m_worker;
 
+    int m_streamIndex;
+    AVCodecContext *m_avCodecCtx;  // TODO: Check thread safety
+
+    qint64 m_startTime;
+    qint64 m_startPts;
+    double m_timeBase;
+    std::atomic<double> m_ptsClock; // Equivalent to the PTS of the current frame
+
+    friend class QmlAVDecoderWorker;
     friend class QmlAVVideoDecoder;
     friend class QmlAVAudioDecoder;
 };
@@ -57,14 +85,14 @@ class QmlAVVideoDecoder : public QmlAVDecoder
     Q_OBJECT
 
 public:
-    QmlAVVideoDecoder(QObject *parent = nullptr);
+    QmlAVVideoDecoder(QmlAVDemuxer *parent);
 
     void setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats);
     QVideoSurfaceFormat videoFormat() const;
 
 protected:
     QSize pixelAspectRatio() const;
-    virtual std::shared_ptr<QmlAVFrame> frame() override;
+    virtual std::shared_ptr<QmlAVFrame> frame(AVFrame *avFrame, qint64 startTime) const override;
 
 private:
     QVideoFrame::PixelFormat m_surfacePixelFormat;
@@ -75,12 +103,12 @@ class QmlAVAudioDecoder : public QmlAVDecoder
     Q_OBJECT
 
 public:
-    QmlAVAudioDecoder(QObject *parent = nullptr);
+    QmlAVAudioDecoder(QmlAVDemuxer *parent);
 
-    QAudioFormat audioFormat();
+    QAudioFormat audioFormat() const;
 
 protected:
-    virtual std::shared_ptr<QmlAVFrame> frame() override;
+    virtual std::shared_ptr<QmlAVFrame> frame(AVFrame *avFrame, qint64 startTime) const override;
 };
 
 #endif // QMLAVDECODER_H

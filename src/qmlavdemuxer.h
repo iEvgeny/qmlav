@@ -70,7 +70,6 @@ private:
     AVFormatContext *m_formatCtx;
     QmlAVInterruptCallback m_interruptCallback;
     QList<AVStream*> m_videoStreams, m_audioStreams;
-    AVPacket m_packet;
     QmlAVVideoDecoder m_videoDecoder;
     QmlAVAudioDecoder m_audioDecoder;
 
