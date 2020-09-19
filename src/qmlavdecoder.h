@@ -46,6 +46,8 @@ public:
     QmlAVDecoder(QmlAVDemuxer *parent);
     virtual ~QmlAVDecoder();
 
+    bool async() const { return m_async; }
+    void setAsync(bool async);
     bool openCodec(AVStream *stream);
     bool codecIsOpen() const;
     int streamIndex() const { return m_streamIndex; }
@@ -63,6 +65,7 @@ protected:
     virtual std::shared_ptr<QmlAVFrame> frame(AVFrame *avFrame, qint64 startTime) const = 0;
 
 private:
+    bool m_async;
     QThread m_thread;
     QmlAVDecoderWorker *m_worker;
 

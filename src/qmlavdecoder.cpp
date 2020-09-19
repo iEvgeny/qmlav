@@ -51,8 +51,6 @@ void QmlAVDecoderWorker::decodeAVPacket(AVPacket avPacket)
             }
 
             av_frame_unref(m_avFrame);
-
-            QCoreApplication::processEvents();
         }
     }
 
@@ -94,6 +92,7 @@ qint64 QmlAVDecoderWorker::frameStartTime()
 
 QmlAVDecoder::QmlAVDecoder(QmlAVDemuxer *parent)
     : QObject(parent),
+      m_async(false),
       m_worker(nullptr),
       m_streamIndex(-1),
       m_avCodecCtx(nullptr),
@@ -121,6 +120,25 @@ QmlAVDecoder::~QmlAVDecoder()
 
     if (m_avCodecCtx) {
         avcodec_free_context(&m_avCodecCtx);
+    }
+}
+
+void QmlAVDecoder::setAsync(bool async)
+{
+    if (m_async == async) {
+        return;
+    }
+
+    m_async = async;
+
+    if (m_async) {
+        if (m_worker->thread() != &m_thread) {
+            m_worker->moveToThread(&m_thread);
+        }
+    } else {
+        if (m_worker->thread() != &m_thread) {
+            m_worker->moveToThread(thread());
+        }
     }
 }
 
@@ -190,7 +208,11 @@ double QmlAVDecoder::clock() const
 
 void QmlAVDecoder::decodeAVPacket(AVPacket &avPacket)
 {
-    emit workerDecodeAVPacket(avPacket);
+    if (m_async) {
+        emit workerDecodeAVPacket(avPacket);
+    } else {
+        m_worker->decodeAVPacket(avPacket);
+    }
 
     av_init_packet(&avPacket);
     avPacket.data = nullptr;

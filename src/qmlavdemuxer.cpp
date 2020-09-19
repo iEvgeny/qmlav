@@ -97,7 +97,10 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
         avdevice_register_all();
         source = url.toLocalFile();
     }
+
     m_realtime = isRealtime(url);
+    m_videoDecoder.setAsync(m_realtime);
+    m_audioDecoder.setAsync(m_realtime);
 
     QMapIterator<QString, QVariant> i(formatOptions);
     while (i.hasNext()) {
@@ -215,7 +218,7 @@ void QmlAVDemuxer::run()
     avPacket.data = nullptr;
     avPacket.size = 0;
 
-    while (!isInterruptionRequested() || m_playbackState == QMediaPlayer::PlayingState) {
+    while (!isInterruptionRequested() && m_playbackState == QMediaPlayer::PlayingState) {
         if (!m_formatCtx) {
             break;
         }
