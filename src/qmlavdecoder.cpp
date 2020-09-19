@@ -136,7 +136,7 @@ void QmlAVDecoder::setAsyncMode(bool async)
             m_worker->moveToThread(&m_thread);
         }
     } else {
-        if (m_worker->thread() != &m_thread) {
+        if (m_worker->thread() == &m_thread) {
             m_worker->moveToThread(thread());
         }
     }
