@@ -92,7 +92,7 @@ qint64 QmlAVDecoderWorker::frameStartTime()
 
 QmlAVDecoder::QmlAVDecoder(QmlAVDemuxer *parent)
     : QObject(parent),
-      m_async(false),
+      m_asyncMode(false),
       m_worker(nullptr),
       m_streamIndex(-1),
       m_avCodecCtx(nullptr),
@@ -123,15 +123,15 @@ QmlAVDecoder::~QmlAVDecoder()
     }
 }
 
-void QmlAVDecoder::setAsync(bool async)
+void QmlAVDecoder::setAsyncMode(bool async)
 {
-    if (m_async == async) {
+    if (m_asyncMode == async) {
         return;
     }
 
-    m_async = async;
+    m_asyncMode = async;
 
-    if (m_async) {
+    if (m_asyncMode) {
         if (m_worker->thread() != &m_thread) {
             m_worker->moveToThread(&m_thread);
         }
@@ -208,7 +208,7 @@ double QmlAVDecoder::clock() const
 
 void QmlAVDecoder::decodeAVPacket(AVPacket &avPacket)
 {
-    if (m_async) {
+    if (m_asyncMode) {
         emit workerDecodeAVPacket(avPacket);
     } else {
         m_worker->decodeAVPacket(avPacket);

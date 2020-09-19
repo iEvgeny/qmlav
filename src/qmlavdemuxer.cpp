@@ -99,8 +99,8 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     }
 
     m_realtime = isRealtime(url);
-    m_videoDecoder.setAsync(m_realtime);
-    m_audioDecoder.setAsync(m_realtime);
+    m_videoDecoder.setAsyncMode(m_realtime);
+    m_audioDecoder.setAsyncMode(m_realtime);
 
     QMapIterator<QString, QVariant> i(formatOptions);
     while (i.hasNext()) {
