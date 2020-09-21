@@ -2,6 +2,7 @@
 #define QMLAVPLAYER_H
 
 #include <QtCore>
+#include <QQmlParserStatus>
 #include <QMediaPlayer>
 #include <QAbstractVideoSurface>
 #include <QVideoSurfaceFormat>
@@ -18,9 +19,10 @@
         emit notify(var); \
     }
 
-class QmlAVPlayer : public QObject
+class QmlAVPlayer : public QObject, public QQmlParserStatus
 {
     Q_OBJECT
+    Q_INTERFACES(QQmlParserStatus)
 
     Q_PROPERTY(QAbstractVideoSurface *videoSurface READ videoSurface WRITE setVideoSurface)
 
@@ -42,6 +44,8 @@ public:
     ~QmlAVPlayer();
 
     QAbstractVideoSurface *videoSurface() const { return m_videoSurface; }
+    virtual void classBegin() override {}
+    virtual void componentComplete() override;
 
     QVariantMap avFormatOptions() const { return m_avFormatOptions; }
     bool autoLoad() const { return m_autoLoad; }
@@ -101,6 +105,7 @@ protected slots:
     void setHasAudio(bool hasAudio);
 
 private:
+    bool m_complete;
     QThread m_thread;
     QmlAVDemuxer *m_demuxer;
     QVideoSurfaceFormat m_videoFormat;

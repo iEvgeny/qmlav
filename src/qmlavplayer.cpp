@@ -2,6 +2,7 @@
 
 QmlAVPlayer::QmlAVPlayer(QObject *parent)
     : QObject(parent),
+      m_complete(false),
       m_demuxer(nullptr),
       m_videoSurface(nullptr),
       m_audioOutput(nullptr),
@@ -30,6 +31,17 @@ QmlAVPlayer::~QmlAVPlayer()
     m_thread.requestInterruption();
     m_thread.quit();
     m_thread.wait();
+}
+
+void QmlAVPlayer::componentComplete()
+{
+    if (m_autoPlay) {
+        play();
+    } else if (m_autoLoad) {
+        load();
+    }
+
+    m_complete = true;
 }
 
 void QmlAVPlayer::play()
@@ -70,10 +82,6 @@ void QmlAVPlayer::setVideoSurface(QAbstractVideoSurface *surface)
     }
 
     m_videoSurface = surface;
-
-    if (m_videoSurface && m_autoPlay) {
-        play();
-    }
 }
 
 void QmlAVPlayer::setAVFormatOptions(const QVariantMap &options)
@@ -82,13 +90,15 @@ void QmlAVPlayer::setAVFormatOptions(const QVariantMap &options)
         return;
     }
 
-    stop();
-
     m_avFormatOptions = options;
-    if (m_autoPlay) {
-        play();
-    } else if (m_autoLoad) {
-        load();
+
+    if (m_complete) {
+        stop();
+        if (m_autoPlay) {
+            play();
+        } else if (m_autoLoad) {
+            load();
+        }
     }
 
     emit avFormatOptionsChanged(m_avFormatOptions);
@@ -100,7 +110,8 @@ void QmlAVPlayer::setAutoLoad(bool autoLoad)
         return;
 
     m_autoLoad = autoLoad;
-    if (m_autoLoad) {
+
+    if (m_complete && m_autoLoad) {
         load();
     }
 
@@ -113,7 +124,8 @@ void QmlAVPlayer::setAutoPlay(bool autoPlay)
         return;
 
     m_autoPlay = autoPlay;
-    if (m_autoPlay) {
+
+    if (m_complete && m_autoPlay) {
         play();
     }
 
@@ -125,13 +137,15 @@ void QmlAVPlayer::setSource(QUrl source)
     if (m_source == source)
         return;
 
-    stop();
-
     m_source = source;
-    if (m_autoPlay) {
-        play();
-    } else if (m_autoLoad) {
-        load();
+
+    if (m_complete) {
+        stop();
+        if (m_autoPlay) {
+            play();
+        } else if (m_autoLoad) {
+            load();
+        }
     }
 
     emit sourceChanged(m_source);
