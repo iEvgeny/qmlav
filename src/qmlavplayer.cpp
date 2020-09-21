@@ -59,8 +59,8 @@ void QmlAVPlayer::stop()
 
     if (m_demuxer) {
         m_demuxer->requestInterruption();
-        m_demuxer->wait();
         m_demuxer->disconnect();
+        m_demuxer->wait();
         m_demuxer->deleteLater();
         m_demuxer = nullptr;
     }
