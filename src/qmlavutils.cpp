@@ -3,19 +3,17 @@
 
 int QmlAVUtils::verboseLevel()
 {
-    return QProcessEnvironment::systemEnvironment().value("VERBOSE_LEVEL", 0).toUInt();
+    return QProcessEnvironment::systemEnvironment().value("VERBOSE_LEVEL", "3").toUInt();
 }
 
 void QmlAVUtils::log(const QString id, QmlAVUtils::LogLevel logLevel, const QString message)
 {
-    FILE *fileHandle = stdout;
-
     if ((verboseLevel() - logLevel) >= 0) {
         if (logLevel == QmlAVUtils::LogError) {
-            fileHandle = stderr;
+            qDebug() << QString("[%1] ").arg(id) << message;
+        } else {
+            qInfo() << QString("[%1] ").arg(id) << message;
         }
-
-        QTextStream(fileHandle) << QString("[%1] ").arg(id) << message << '\n';
     }
 }
 
