@@ -45,6 +45,7 @@ public:
     virtual ~QmlAVDemuxer();
 
     void requestInterruption();
+    bool wait(unsigned long time = ULONG_MAX);
 
 public slots:
     void load(const QUrl &url, const QVariantMap &formatOptions);
@@ -76,6 +77,7 @@ private:
     QMediaPlayer::State m_playbackState;
     QMediaPlayer::MediaStatus m_status;
 
+    std::atomic<bool> m_running;
     std::atomic<bool> m_interruptionRequested;
 
     friend class QmlAVUtils;

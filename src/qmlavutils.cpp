@@ -3,7 +3,7 @@
 
 int QmlAVUtils::verboseLevel()
 {
-    return QProcessEnvironment::systemEnvironment().value("VERBOSE_LEVEL", "3").toUInt();
+    return QProcessEnvironment::systemEnvironment().value("VERBOSE_LEVEL", "0").toUInt();
 }
 
 void QmlAVUtils::log(const QString id, QmlAVUtils::LogLevel logLevel, const QString message)

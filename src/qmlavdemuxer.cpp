@@ -46,6 +46,7 @@ QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
       m_audioDecoder(this),
       m_playbackState(QMediaPlayer::StoppedState),
       m_status(QMediaPlayer::UnknownMediaStatus),
+      m_running(false),
       m_interruptionRequested(false)
 {
     logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::QmlAVDemuxer()");
@@ -68,6 +69,19 @@ void QmlAVDemuxer::requestInterruption()
     m_interruptionRequested = true;
 
     logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::requestInterruption()");
+}
+
+bool QmlAVDemuxer::wait(unsigned long time)
+{
+    while (m_running) {
+        if (time == 0) {
+            return false;
+        }
+        QThread::msleep(1);
+        --time;
+    }
+
+    return true;
 }
 
 void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
@@ -176,10 +190,9 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     }
 
     setStatus(QMediaPlayer::LoadedMedia);
+    av_dict_free(&avFormatOptions);
 
     logDebug(QmlAVUtils::logId(this), QString("Media loaded successfully!"));
-
-    av_dict_free(&avFormatOptions);
 }
 
 void QmlAVDemuxer::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats)
@@ -219,6 +232,8 @@ void QmlAVDemuxer::run()
     avPacket.size = 0;
 
     while (!isInterruptionRequested() && m_playbackState == QMediaPlayer::PlayingState) {
+        m_running = true;
+
         if (!m_formatCtx) {
             break;
         }
@@ -279,12 +294,11 @@ void QmlAVDemuxer::run()
             }
         }
 
-#ifndef Q_OS_ANDROID
         QCoreApplication::processEvents();
-#endif
-
         av_packet_unref(&avPacket);
     }
+
+    m_running = false;
 }
 
 bool QmlAVDemuxer::isRealtime(QUrl url)
