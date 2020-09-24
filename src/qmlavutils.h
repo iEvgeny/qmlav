@@ -20,22 +20,22 @@ public:
     };
 
     static int verboseLevel();
-    static void log(const QString id, QmlAVUtils::LogLevel logLevel, const QString message);
-    static void logError(const QString id, const QString message) { log(id, QmlAVUtils::LogError, message); }
-    static void logInfo(const QString id, const QString message) { log(id, QmlAVUtils::LogInfo, message); }
-    static void logVerbose(const QString id, const QString message) { log(id, QmlAVUtils::LogVerbose, message); }
-    static void logDebug(const QString id, const QString message) { log(id, QmlAVUtils::LogDebug, message); }
-    static QString logId(const QmlAVDemuxer *p);
+    static void log(const QString prefix, QmlAVUtils::LogLevel logLevel, const QString message);
+    static void logError(QObject *sender, const QString message) { log(logPrefix(sender), QmlAVUtils::LogError, message); }
+    static void logInfo(QObject *sender, const QString message) { log(logPrefix(sender), QmlAVUtils::LogInfo, message); }
+    static void logVerbose(QObject *sender, const QString message) { log(logPrefix(sender), QmlAVUtils::LogVerbose, message); }
+    static void logDebug(QObject *sender, const QString message) { log(logPrefix(sender), QmlAVUtils::LogDebug, message); }
+    static QString logPrefix(QObject *sender);
 };
 
-#define logError(id, message) QmlAVUtils::log(id, QmlAVUtils::LogError, message)
-#define logInfo(id, message) QmlAVUtils::log(id, QmlAVUtils::LogInfo, message)
-#define logVerbose(id, message) QmlAVUtils::log(id, QmlAVUtils::LogVerbose, message)
+#define logError(sender, message) QmlAVUtils::logError(qobject_cast<QObject *>(sender), message)
+#define logInfo(sender, message) QmlAVUtils::logInfo(qobject_cast<QObject *>(sender), message)
+#define logVerbose(sender, message) QmlAVUtils::logVerbose(qobject_cast<QObject *>(sender), message)
 
 #ifdef NO_DEBUG
-    #define logDebug(id, message) (void)id; (void)message;
+    #define logDebug(sender, message) (void)sender; (void)message;
 #else
-    #define logDebug(id, message) QmlAVUtils::log(id, QmlAVUtils::LogDebug, message)
+    #define logDebug(sender, message) QmlAVUtils::logDebug(qobject_cast<QObject *>(sender), message)
 #endif
 
 #endif // QMLAVUTILS_H

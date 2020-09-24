@@ -27,8 +27,7 @@ void QmlAVDecoderWorker::decodeAVPacket(AVPacket avPacket)
         // Submit the packet to the decoder
         ret = avcodec_send_packet(m_decoderCtx->m_avCodecCtx, &avPacket);
         if (ret < 0) {
-            logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(m_decoderCtx->parent())),
-                     QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));  // TODO:
+            logError(this, QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));  // TODO:
         }
 
         // Get all the available frames from the decoder
@@ -38,8 +37,7 @@ void QmlAVDecoderWorker::decodeAVPacket(AVPacket avPacket)
                 // Those two return values are special and mean there is no output
                 // frame available, but there were no errors during decoding
                 if (ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
-                    logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(m_decoderCtx->parent())),
-                             QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));  // TODO:
+                    logError(this, QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));  // TODO:
                 }
 
                 av_packet_unref(&avPacket);
@@ -152,27 +150,25 @@ bool QmlAVDecoder::openCodec(AVStream *stream)
 
     AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
     if (codec == NULL) {
-        logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())), "Unable find decoder");
+        logError(this, "Unable find decoder");
         return false;
     }
 
     m_avCodecCtx = avcodec_alloc_context3(codec);
     if (!m_avCodecCtx) {
-        logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())), "Unable allocate codec context");
+        logError(this, "Unable allocate codec context");
         return false;
     }
 
     ret = avcodec_parameters_to_context(m_avCodecCtx, stream->codecpar);
     if (ret < 0) {
-        logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
-                             QString("Unable fill codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
+        logError(this, QString("Unable fill codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         return false;
     }
 
     ret = avcodec_open2(m_avCodecCtx, codec, NULL);
     if (ret  < 0) {
-        logError(QmlAVUtils::logId(reinterpret_cast<QmlAVDemuxer*>(parent())),
-                             QString("Unable initialize codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
+        logError(this, QString("Unable initialize codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         return false;
     }
 

@@ -49,7 +49,7 @@ QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
       m_running(false),
       m_interruptionRequested(false)
 {
-    logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::QmlAVDemuxer()");
+    logDebug(this, "QmlAVDemuxer()");
 }
 
 QmlAVDemuxer::~QmlAVDemuxer()
@@ -60,7 +60,7 @@ QmlAVDemuxer::~QmlAVDemuxer()
         avformat_close_input(&m_formatCtx);
     }
 
-    logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::~QmlAVDemuxer()");
+    logDebug(this, "~QmlAVDemuxer()");
 }
 
 void QmlAVDemuxer::requestInterruption()
@@ -68,7 +68,7 @@ void QmlAVDemuxer::requestInterruption()
     m_interruptCallback.requestInterruption();
     m_interruptionRequested = true;
 
-    logDebug(QmlAVUtils::logId(this), "QmlAVDemuxer::requestInterruption()");
+    logDebug(this, "requestInterruption()");
 }
 
 bool QmlAVDemuxer::wait(unsigned long time)
@@ -95,7 +95,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     }
 
     if (source.isEmpty()) {
-        logVerbose(QmlAVUtils::logId(this), QString("Source is emty!"));
+        logVerbose(this, QString("Source is emty!"));
         setStatus(QMediaPlayer::NoMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
         return;
@@ -120,7 +120,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     while (i.hasNext()) {
         i.next();
         av_dict_set(&avFormatOptions, i.key().toUtf8(), i.value().toString().toUtf8(), 0);
-        logDebug(QmlAVUtils::logId(this), QString("Added AVFormat option: -%1 %2").arg(i.key()).arg(i.value().toString()));
+        logDebug(this, QString("Added AVFormat option: -%1 %2").arg(i.key()).arg(i.value().toString()));
     }
 
     setStatus(QMediaPlayer::LoadingMedia);
@@ -132,7 +132,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     m_interruptCallback.startTimer();
     ret = avformat_open_input(&m_formatCtx, source.toUtf8(), nullptr, &avFormatOptions);
     if (ret < 0) {
-        logError(QmlAVUtils::logId(this),
+        logError(this,
                              QString("Unable to open input file: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         setStatus(QMediaPlayer::InvalidMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
@@ -143,7 +143,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     m_interruptCallback.startTimer();
     ret = avformat_find_stream_info(m_formatCtx, nullptr);
     if (ret < 0) {
-        logError(QmlAVUtils::logId(this),
+        logError(this,
                              QString("Cannot find stream information: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         setStatus(QMediaPlayer::InvalidMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
@@ -156,7 +156,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     }
 
     if (!findStreams()) {
-        logError(QmlAVUtils::logId(this), QString("Unable find valid stream"));
+        logError(this, QString("Unable find valid stream"));
         setStatus(QMediaPlayer::InvalidMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
         return;
@@ -167,7 +167,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
         if (m_videoDecoder.openCodec(m_videoStreams.value(0))) {
             m_videoDecoder.setStartTime(av_gettime());
 
-            logDebug(QmlAVUtils::logId(this), QString("m_videoDecoder.openCodec()->true : { m_videoDecoder.startTime()->%1 }").arg(m_videoDecoder.startTime()));
+            logDebug(this, QString("m_videoDecoder.openCodec()->true : { m_videoDecoder.startTime()->%1 }").arg(m_videoDecoder.startTime()));
         }
     }
     if (m_audioStreams.count() > 0) {
@@ -175,11 +175,11 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
         if (m_audioDecoder.openCodec(m_audioStreams.value(0))) {
             m_audioDecoder.setStartTime(av_gettime());
 
-            logDebug(QmlAVUtils::logId(this), QString("m_audioDecoder.openCodec()->true : { m_audioDecoder.startTime()->%1 }").arg(m_audioDecoder.startTime()));
+            logDebug(this, QString("m_audioDecoder.openCodec()->true : { m_audioDecoder.startTime()->%1 }").arg(m_audioDecoder.startTime()));
         }
     }
     if (!m_videoDecoder.codecIsOpen() && !m_audioDecoder.codecIsOpen()) {
-        logError(QmlAVUtils::logId(this), QString("Unable open any codec"));
+        logError(this, QString("Unable open any codec"));
         setStatus(QMediaPlayer::InvalidMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
         return;
@@ -192,7 +192,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     setStatus(QMediaPlayer::LoadedMedia);
     av_dict_free(&avFormatOptions);
 
-    logDebug(QmlAVUtils::logId(this), QString("Media loaded successfully!"));
+    logDebug(this, QString("Media loaded successfully!"));
 }
 
 void QmlAVDemuxer::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats)
@@ -225,7 +225,7 @@ void QmlAVDemuxer::run()
         timeBase = m_audioDecoder.timeBase();
     }
 
-    logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { timeBase=%1 }").arg(timeBase));
+    logDebug(this, QString("run() : { timeBase=%1 }").arg(timeBase));
 
     av_init_packet(&avPacket);
     avPacket.data = nullptr;
@@ -242,10 +242,10 @@ void QmlAVDemuxer::run()
         ret = av_read_frame(m_formatCtx, &avPacket);
         if (ret < 0) {
             if (ret == AVERROR_EOF) {
-                logVerbose(QmlAVUtils::logId(this), QString("End of media"));
+                logVerbose(this, QString("End of media"));
                 setStatus(QMediaPlayer::EndOfMedia);
             } else {
-                logError(QmlAVUtils::logId(this), QString("Unable read frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
+                logError(this, QString("Unable read frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
                 setStatus(QMediaPlayer::StalledMedia);
             }
             setPlaybackState(QMediaPlayer::StoppedState);
@@ -258,8 +258,8 @@ void QmlAVDemuxer::run()
             m_videoDecoder.decodeAVPacket(avPacket);
             clock = m_videoDecoder.clock();
 
-            logDebug(QmlAVUtils::logId(this),
-                     QString("QmlAVDemuxer::run() : { m_videoDecoder.clock()->%1; Δ=%2 }").arg(clock).arg(clock - av_gettime()));
+            logDebug(this,
+                     QString("run() : { m_videoDecoder.clock()->%1; Δ=%2 }").arg(clock).arg(clock - av_gettime()));
 
         } else if (avPacket.stream_index == m_audioDecoder.streamIndex()) {
             m_audioDecoder.decodeAVPacket(avPacket);
@@ -267,11 +267,11 @@ void QmlAVDemuxer::run()
                 clock = m_audioDecoder.clock();
             }
 
-            logDebug(QmlAVUtils::logId(this),
-                     QString("QmlAVDemuxer::run() : { m_audioDecoder.clock()->%1; Δ=%2 }").arg(clock).arg(clock - av_gettime()));
+            logDebug(this,
+                     QString("run() : { m_audioDecoder.clock()->%1; Δ=%2 }").arg(clock).arg(clock - av_gettime()));
 
         } else {
-            logDebug(QmlAVUtils::logId(this), QString("QmlAVDemuxer::run() : { QThread::usleep(1); av_gettime()->%1 }").arg(av_gettime()));
+            logDebug(this, QString("run() : { QThread::usleep(1); av_gettime()->%1 }").arg(av_gettime()));
             QThread::usleep(1);
         }
 
@@ -289,8 +289,8 @@ void QmlAVDemuxer::run()
             }
 
             if (count > 0) {
-                logDebug(QmlAVUtils::logId(this),
-                         QString("QmlAVDemuxer::run() : { Loop of local playback sync: count=(%1); clock=%2 }").arg(count).arg(clock));
+                logDebug(this,
+                         QString("run() : { Loop of local playback sync: count=(%1); clock=%2 }").arg(count).arg(clock));
             }
         }
 
@@ -364,7 +364,7 @@ bool QmlAVDemuxer::findStreams()
         return false;
     }
 
-    logDebug(QmlAVUtils::logId(this),
+    logDebug(this,
                          QString("Found %1 video and %2 audio streams").arg(m_videoStreams.count()).arg(m_audioStreams.count()));
 
     return true;
