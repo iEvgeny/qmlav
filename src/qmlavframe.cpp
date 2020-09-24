@@ -22,7 +22,7 @@ bool QmlAVVideoFrame::isValid() const
     return false;
 }
 
-#define FFMPEG_ALIGNMENT (32)
+#define FFMPEG_ALIGNMENT (64)
 
 void QmlAVVideoFrame::fromAVFrame(AVFrame *avFrame)
 {
