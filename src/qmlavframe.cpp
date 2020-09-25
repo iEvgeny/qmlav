@@ -22,11 +22,13 @@ bool QmlAVVideoFrame::isValid() const
     return false;
 }
 
-#define FFMPEG_ALIGNMENT (64)
+#define FFMPEG_ALIGNMENT (32)
 
 void QmlAVVideoFrame::fromAVFrame(AVFrame *avFrame)
 {
     SwsContext *swsCtx = nullptr;
+    uint8_t *dstData[AV_NUM_DATA_POINTERS] = {};
+    int dstLinesize[AV_NUM_DATA_POINTERS] = {};
 
     if (!avFrame) {
         return;
@@ -42,22 +44,19 @@ void QmlAVVideoFrame::fromAVFrame(AVFrame *avFrame)
                             SWS_POINT,
                             nullptr, nullptr, nullptr);
 
-    int size = av_image_get_buffer_size(dstAVFormat, avFrame->width, avFrame->height, FFMPEG_ALIGNMENT);
+    int size = av_image_fill_arrays(dstData, dstLinesize, nullptr, dstAVFormat, avFrame->width, avFrame->height, FFMPEG_ALIGNMENT);
+
     m_videoFrame = QVideoFrame(size,
                                QSize(avFrame->width, avFrame->height),
-                               avFrame->linesize[0],
+                               dstLinesize[0],
                                m_pixelFormat);
     m_videoFrame.setStartTime(m_startTime);
 
     if (m_videoFrame.map(QAbstractVideoBuffer::WriteOnly)) {
         if (swsCtx) {
-            uint8_t *data[AV_NUM_DATA_POINTERS] = {};
-            int linesize[AV_NUM_DATA_POINTERS] = {};
-
             int i = 0;
             while (m_videoFrame.bits(i)) {
-                data[i] = m_videoFrame.bits(i);
-                linesize[i] = m_videoFrame.bytesPerLine(i);
+                dstData[i] = m_videoFrame.bits(i);
                 ++i;
             }
 
@@ -65,14 +64,15 @@ void QmlAVVideoFrame::fromAVFrame(AVFrame *avFrame)
                             QmlAVUtils::LogDebug,
                             QString("fromAVFrame(AVFrame: width=%1; height=%2; format=%3; linesize[0-2]=%4:%5:%6) : { size=%7; m_pixelFormat=%8; linesize[0-2]=%9;%10;%11 }")
                             .arg(avFrame->width).arg(avFrame->height).arg(avFrame->format).arg(avFrame->linesize[0]).arg(avFrame->linesize[1]).arg(avFrame->linesize[2])
-                            .arg(size).arg(m_pixelFormat).arg(linesize[0]).arg(linesize[1]).arg(linesize[2]));
+                            .arg(size).arg(m_pixelFormat).arg(dstLinesize[0]).arg(dstLinesize[1]).arg(dstLinesize[2]));
 
-            sws_scale(swsCtx, avFrame->data, avFrame->linesize, 0, avFrame->height, data, linesize);
+            sws_scale(swsCtx, avFrame->data, avFrame->linesize, 0, avFrame->height, dstData, dstLinesize);
             sws_freeContext(swsCtx);
         }
         m_videoFrame.unmap();
     }
 }
+
 
 QmlAVAudioFrame::QmlAVAudioFrame(qint64 startTime)
     : QmlAVFrame(startTime, QmlAVFrame::TypeAudio),
