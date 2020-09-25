@@ -73,7 +73,6 @@ void QmlAVVideoFrame::fromAVFrame(AVFrame *avFrame)
     }
 }
 
-
 QmlAVAudioFrame::QmlAVAudioFrame(qint64 startTime)
     : QmlAVFrame(startTime, QmlAVFrame::TypeAudio),
       m_data(nullptr),
