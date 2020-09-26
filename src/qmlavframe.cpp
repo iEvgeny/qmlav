@@ -60,12 +60,6 @@ void QmlAVVideoFrame::fromAVFrame(AVFrame *avFrame)
                 ++i;
             }
 
-            QmlAVUtils::log(QString("QmlAVVideoFrame @ %1").arg(QString().number(reinterpret_cast<quintptr>(this), 16)),
-                            QmlAVUtils::LogDebug,
-                            QString("fromAVFrame(AVFrame: width=%1; height=%2; format=%3; linesize[0-2]=%4:%5:%6) : { size=%7; m_pixelFormat=%8; linesize[0-2]=%9;%10;%11 }")
-                            .arg(avFrame->width).arg(avFrame->height).arg(avFrame->format).arg(avFrame->linesize[0]).arg(avFrame->linesize[1]).arg(avFrame->linesize[2])
-                            .arg(size).arg(m_pixelFormat).arg(dstLinesize[0]).arg(dstLinesize[1]).arg(dstLinesize[2]));
-
             sws_scale(swsCtx, avFrame->data, avFrame->linesize, 0, avFrame->height, dstData, dstLinesize);
             sws_freeContext(swsCtx);
         }
