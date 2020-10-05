@@ -3,7 +3,25 @@ FFmpeg based real time QML player
 
 ### To use in your project, you must follow these steps:
 
-1. Setup your project
+1. Setup your project for CMake
+
+```
+find_package(Qt5 Multimedia REQUIRED)
+
+add_subdirectory(qmlav)
+
+find_library(AVFORMAT_LIBRARY avformat)
+find_library(AVCODEC_LIBRARY avcodec)
+find_library(AVUTIL_LIBRARY avutil)
+find_library(AVSWSCALE_LIBRARY swscale)
+find_library(AVSWRESAMPLE_LIBRARY swresample)
+find_library(AVDEVICE_LIBRARY avdevice)
+
+target_link_libraries(cctv-viewer
+  PRIVATE ${AVFORMAT_LIBRARY} ${AVCODEC_LIBRARY} ${AVUTIL_LIBRARY} ${AVSWSCALE_LIBRARY} ${AVSWRESAMPLE_LIBRARY} ${AVDEVICE_LIBRARY})
+```
+
+or for QMake
 
 ```
 QT += quick multimedia
