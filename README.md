@@ -45,8 +45,8 @@ QT += quick multimedia
 include(qmlav/qmlav.pri)
 
 android {
-    INCLUDEPATH += ./src/qmlav/3rd/FFmpeg
-    DEPENDPATH += ./src/qmlav/3rd/FFmpeg
+    INCLUDEPATH += ./qmlav/3rd/FFmpeg
+    DEPENDPATH += ./qmlav/3rd/FFmpeg
 }
 
 LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
