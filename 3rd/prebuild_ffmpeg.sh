@@ -4,12 +4,21 @@
 SOURCE=./FFmpeg
 
 TARGET_OS=android
-ANDROID_API_VERSION=28
-ANDROID_ABI=armeabi-v7a
 
-# Available in qmake runtime variables
-ANDROID_NDK_HOST=linux-x86_64
-ANDROID_NDK_ROOT=~/Android/Sdk/ndk/21.1.6352462
+if [[ -z ${ANDROID_API_VERSION} ]]; then
+    ANDROID_API_VERSION=28
+fi
+if [[ -z ${ANDROID_ABI} ]]; then
+    ANDROID_ABI=armeabi-v7a
+fi
+
+# Available in QMake runtime variables
+if [[ -z ${ANDROID_NDK_HOST} ]]; then
+    ANDROID_NDK_HOST=linux-x86_64
+fi
+if [[ -z ${ANDROID_NDK_ROOT} ]]; then
+    ANDROID_NDK_ROOT=~/Android/Sdk/ndk/21.1.6352462
+fi
 
 case ${ANDROID_ABI} in
     armeabi-v7a)
@@ -36,7 +45,9 @@ SYSROOT=${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST}/sysroot
 CROSS_PREFIX=${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${ANDROID_NDK_HOST}/bin/${ARCH}-linux-android${EABI}-
 PREFIX=./ffbuild/${ANDROID_ABI}
 
-cd ${SOURCE}
+if [[ -d "${SOURCE}" ]]; then
+    cd "${SOURCE}"
+fi
 
 if [[ ! -d "${PREFIX}" ]]; then
     mkdir "${PREFIX}"

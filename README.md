@@ -1,39 +1,58 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 # QmlAV
-FFmpeg based real time QML player
+FFmpeg-based real-time QML stream player
 
 ### To use in your project, you must follow these steps:
 
-1. Setup your project for CMake
+1. Get dependencies:
+
+* For Debian
+
+```
+# apt-get install libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev libavdevice-dev
+```
+
+* or for Android
+
+```
+$ cd 3rd/FFmpeg && git submodule update --init
+$ export ANDROID_ABI=armeabi-v7a ANDROID_NDK_ROOT=~/Android/Sdk/ndk/21.1.6352462 && ../prebuild_ffmpeg.sh # Supported architectures: armeabi-v7a, arm64-v8a, x86, x86_64
+```
+
+2. Setup your project:
+
+* For CMake
 
 ```
 find_package(Qt5 Multimedia REQUIRED)
 
 add_subdirectory(qmlav)
 
-find_library(AVFORMAT_LIBRARY avformat)
-find_library(AVCODEC_LIBRARY avcodec)
-find_library(AVUTIL_LIBRARY avutil)
-find_library(AVSWSCALE_LIBRARY swscale)
-find_library(AVSWRESAMPLE_LIBRARY swresample)
-find_library(AVDEVICE_LIBRARY avdevice)
+if (ANDROID)
+    target_include_directories(${TARGET} PRIVATE "${CMAKE_SOURCE_DIR}/qmlav/3rd/FFmpeg/ffbuild/${ANDROID_ABI}/include")
+    target_link_directories(${TARGET} PRIVATE "${CMAKE_SOURCE_DIR}/qmlav/3rd/FFmpeg/ffbuild/${ANDROID_ABI}/lib")
+endif()
 
-target_link_libraries(cctv-viewer
-  PRIVATE ${AVFORMAT_LIBRARY} ${AVCODEC_LIBRARY} ${AVUTIL_LIBRARY} ${AVSWSCALE_LIBRARY} ${AVSWRESAMPLE_LIBRARY} ${AVDEVICE_LIBRARY})
+target_link_libraries(${TARGET} PRIVATE avformat avcodec avutil swscale swresample avdevice)
 ```
 
-or for QMake
+* or for QMake
 
 ```
 QT += quick multimedia
 
 include(qmlav/qmlav.pri)
 
+android {
+    INCLUDEPATH += ./src/qmlav/3rd/FFmpeg
+    DEPENDPATH += ./src/qmlav/3rd/FFmpeg
+}
+
 LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 ```
 
-2. Register the QML type before using
+3. Register the QML type before using:
 
 ```
 #include "qmlav/src/qmlavplayer.h"
@@ -43,7 +62,7 @@ qmlRegisterType<FFPlayer>("QmlAV.Multimedia", 1, 0, "QmlAVPlayer");
 ...
 ```
 
-3. And use this in your QML code
+4. And use this in your QML code:
 
 ```
 import QtQuick 2.0
