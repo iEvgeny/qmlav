@@ -76,7 +76,7 @@ QmlAVAudioFrame::QmlAVAudioFrame(qint64 startTime)
 
 QmlAVAudioFrame::~QmlAVAudioFrame()
 {
-    delete m_data;
+    delete[] m_data;
 }
 
 bool QmlAVAudioFrame::isValid() const
