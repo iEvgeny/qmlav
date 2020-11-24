@@ -132,8 +132,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     m_interruptCallback.startTimer();
     ret = avformat_open_input(&m_formatCtx, source.toUtf8(), nullptr, &avFormatOptions);
     if (ret < 0) {
-        logError(this,
-                             QString("Unable to open input file: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
+        logError(this, QString("Unable to open input file: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         setStatus(QMediaPlayer::InvalidMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
         return;
@@ -143,8 +142,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     m_interruptCallback.startTimer();
     ret = avformat_find_stream_info(m_formatCtx, nullptr);
     if (ret < 0) {
-        logError(this,
-                             QString("Cannot find stream information: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
+        logError(this, QString("Cannot find stream information: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         setStatus(QMediaPlayer::InvalidMedia);
         setPlaybackState(QMediaPlayer::StoppedState);
         return;

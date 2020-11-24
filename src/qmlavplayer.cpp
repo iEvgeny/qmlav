@@ -214,7 +214,6 @@ void QmlAVPlayer::stateMachine()
             }
         }
         if (!m_audioOutput && m_audioFormat.isValid()) {
-            m_audioFormat = m_audioDeviceInfo.nearestFormat(m_audioFormat);
             m_audioOutput = new QAudioOutput(m_audioDeviceInfo, m_audioFormat, this);
             m_audioOutput->setVolume(QAudio::convertVolume(m_volume.toReal(),
                                                            QAudio::LogarithmicVolumeScale,
