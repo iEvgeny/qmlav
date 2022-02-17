@@ -15,11 +15,11 @@ void QmlAVUtils::log(const QString prefix, QmlAVUtils::LogLevel logLevel, const 
 
 QString QmlAVUtils::logPrefix(QObject *sender)
 {
-    QString prefix, className;
+    QString className;
 
     if (sender) {
         className = sender->metaObject()->className();
     }
 
-    return QString("%1 @ %2").arg(className).arg(QString().number(reinterpret_cast<quintptr>(sender), 16));
+    return QString("%1 @ %2").arg(className, QString().number(reinterpret_cast<quintptr>(sender), 16));
 }
