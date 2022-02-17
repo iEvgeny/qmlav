@@ -42,6 +42,8 @@ QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     : QObject(parent),
       m_realtime(false),
       m_formatCtx(nullptr),
+      m_avInputFormat(nullptr),
+      m_avFormatOptions(nullptr),
       m_videoDecoder(this),
       m_audioDecoder(this),
       m_playbackState(QMediaPlayer::StoppedState),
@@ -56,9 +58,8 @@ QmlAVDemuxer::~QmlAVDemuxer()
 {
     requestInterruption();
 
-    if (m_formatCtx) {
-        avformat_close_input(&m_formatCtx);
-    }
+    avformat_close_input(&m_formatCtx);
+    av_dict_free(&m_avFormatOptions);
 
     logDebug(this, "~QmlAVDemuxer()");
 }
@@ -88,7 +89,6 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
 {
     int ret;
     QString source(url.toString());
-    AVDictionary *avFormatOptions = nullptr;
 
     if (m_formatCtx) {
         return;
@@ -112,16 +112,11 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
         source = url.toLocalFile();
     }
 
+    parseAVFormatOptions(formatOptions);
+
     m_realtime = isRealtime(url);
     m_videoDecoder.setAsyncMode(m_realtime);
     m_audioDecoder.setAsyncMode(m_realtime);
-
-    QMapIterator<QString, QVariant> i(formatOptions);
-    while (i.hasNext()) {
-        i.next();
-        av_dict_set(&avFormatOptions, i.key().toUtf8(), i.value().toString().toUtf8(), 0);
-        logDebug(this, QString("Added AVFormat option: -%1 %2").arg(i.key()).arg(i.value().toString()));
-    }
 
     setStatus(QMediaPlayer::LoadingMedia);
     setPlaybackState(QMediaPlayer::StoppedState);
@@ -130,7 +125,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     m_formatCtx->interrupt_callback = m_interruptCallback;
 
     m_interruptCallback.startTimer();
-    ret = avformat_open_input(&m_formatCtx, source.toUtf8(), nullptr, &avFormatOptions);
+    ret = avformat_open_input(&m_formatCtx, source.toUtf8(), m_avInputFormat, &m_avFormatOptions);
     if (ret < 0) {
         logError(this, QString("Unable to open input file: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         setStatus(QMediaPlayer::InvalidMedia);
@@ -188,7 +183,6 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     }
 
     setStatus(QMediaPlayer::LoadedMedia);
-    av_dict_free(&avFormatOptions);
 
     logDebug(this, QString("Media loaded successfully!"));
 }
@@ -315,6 +309,31 @@ bool QmlAVDemuxer::isRealtime(QUrl url)
 bool QmlAVDemuxer::isInterruptionRequested() const
 {
     return m_interruptionRequested || QThread::currentThread()->isInterruptionRequested();
+}
+
+void QmlAVDemuxer::parseAVFormatOptions(const QVariantMap &formatOptions)
+{
+    QMapIterator<QString, QVariant> i(formatOptions);
+
+    av_dict_free(&m_avFormatOptions);
+
+    while (i.hasNext()) {
+        i.next();
+
+        QString key{i.key()}, value{i.value().toString()};
+
+        if (key == "f") {
+            m_avInputFormat = av_find_input_format(value.toUtf8());
+            if (!m_avInputFormat) {
+                logError(this, QString("Unknown input format: -f %1. Ignore this.").arg(value));
+            }
+
+            continue;
+        }
+
+        av_dict_set(&m_avFormatOptions, key.toUtf8(), value.toUtf8(), 0);
+        logDebug(this, QString("Added AVFormat option: -%1 %2").arg(key, value));
+    }
 }
 
 void QmlAVDemuxer::setStatus(QMediaPlayer::MediaStatus status)
