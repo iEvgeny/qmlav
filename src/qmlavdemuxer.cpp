@@ -243,8 +243,8 @@ void QmlAVDemuxer::run()
         }
 #else
         av_init_packet(avPacket);
-        avPacket.data = nullptr;
-        avPacket.size = 0;
+        avPacket->data = nullptr;
+        avPacket->size = 0;
 #endif
 
         m_interruptCallback.startTimer();
