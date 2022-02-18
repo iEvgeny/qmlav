@@ -106,6 +106,12 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     avformat_network_init();
 #endif
 
+    m_formatCtx = avformat_alloc_context();
+    if (!m_formatCtx) {
+        logError(this, "Could not allocate AVFormatContext");
+        return;
+    }
+
     // TODO: Only Unix systems are supported
     if (url.isLocalFile()) {
         avdevice_register_all();
@@ -118,11 +124,10 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
     m_videoDecoder.setAsyncMode(m_realtime);
     m_audioDecoder.setAsyncMode(m_realtime);
 
+    m_formatCtx->interrupt_callback = m_interruptCallback;
+
     setStatus(QMediaPlayer::LoadingMedia);
     setPlaybackState(QMediaPlayer::StoppedState);
-
-    m_formatCtx = avformat_alloc_context();
-    m_formatCtx->interrupt_callback = m_interruptCallback;
 
     m_interruptCallback.startTimer();
     ret = avformat_open_input(&m_formatCtx, source.toUtf8(), m_avInputFormat, &m_avFormatOptions);
@@ -198,7 +203,11 @@ void QmlAVDemuxer::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat
 void QmlAVDemuxer::run()
 {
     int ret;
-    AVPacket avPacket;
+#ifdef FF_API_INIT_PACKET
+    AVPacket *avPacket;
+#else
+    AVPacket avPacket1, *avPacket = &avPacket1;
+#endif
     qint64 clock = 0;
     double timeBase = 0;
 
@@ -219,10 +228,6 @@ void QmlAVDemuxer::run()
 
     logDebug(this, QString("run() : { timeBase=%1 }").arg(timeBase));
 
-    av_init_packet(&avPacket);
-    avPacket.data = nullptr;
-    avPacket.size = 0;
-
     while (!isInterruptionRequested() && m_playbackState == QMediaPlayer::PlayingState) {
         m_running = true;
 
@@ -230,8 +235,20 @@ void QmlAVDemuxer::run()
             break;
         }
 
+#ifdef FF_API_INIT_PACKET
+        avPacket = av_packet_alloc();
+        if (!avPacket) {
+            logError(this, "Could not allocate AVPacket");
+            break;
+        }
+#else
+        av_init_packet(avPacket);
+        avPacket.data = nullptr;
+        avPacket.size = 0;
+#endif
+
         m_interruptCallback.startTimer();
-        ret = av_read_frame(m_formatCtx, &avPacket);
+        ret = av_read_frame(m_formatCtx, avPacket);
         if (ret < 0) {
             if (ret == AVERROR_EOF) {
                 logVerbose(this, QString("End of media"));
@@ -241,19 +258,19 @@ void QmlAVDemuxer::run()
                 setStatus(QMediaPlayer::StalledMedia);
             }
             setPlaybackState(QMediaPlayer::StoppedState);
-            av_packet_unref(&avPacket); // Important!
+            av_packet_unref(avPacket); // Important!
             break;
         }
         m_interruptCallback.stopTimer();
 
-        if (avPacket.stream_index == m_videoDecoder.streamIndex()) {
+        if (avPacket->stream_index == m_videoDecoder.streamIndex()) {
             m_videoDecoder.decodeAVPacket(avPacket);
             clock = m_videoDecoder.clock();
 
             logDebug(this,
                      QString("run() : { m_videoDecoder.clock()->%1; Δ=%2 }").arg(clock).arg(clock - av_gettime()));
 
-        } else if (avPacket.stream_index == m_audioDecoder.streamIndex()) {
+        } else if (avPacket->stream_index == m_audioDecoder.streamIndex()) {
             m_audioDecoder.decodeAVPacket(avPacket);
             if (!m_videoDecoder.codecIsOpen()) {
                 clock = m_audioDecoder.clock();
@@ -287,7 +304,7 @@ void QmlAVDemuxer::run()
         }
 
         QCoreApplication::processEvents();
-        av_packet_unref(&avPacket);
+        av_packet_unref(avPacket);
     }
 
     m_running = false;

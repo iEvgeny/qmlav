@@ -24,7 +24,7 @@ public:
     virtual ~QmlAVDecoderWorker();
 
 public slots:
-    void decodeAVPacket(AVPacket avPacket);
+    void decodeAVPacket(AVPacket *avPacket);
 
 signals:
     void frameFinished(const std::shared_ptr<QmlAVFrame> frame);
@@ -56,10 +56,10 @@ public:
     void setStartTime(qint64 startTime) { m_startTime = startTime; }
     double clock() const;
 
-    void decodeAVPacket(AVPacket &avPacket);
+    void decodeAVPacket(AVPacket *avPacket);
 
 signals:
-    void workerDecodeAVPacket(AVPacket avPacket);
+    void workerDecodeAVPacket(AVPacket *avPacket);
 
 protected:
     virtual std::shared_ptr<QmlAVFrame> frame(AVFrame *avFrame, qint64 startTime) const = 0;

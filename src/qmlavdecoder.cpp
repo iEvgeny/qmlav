@@ -19,15 +19,15 @@ QmlAVDecoderWorker::~QmlAVDecoderWorker()
     }
 }
 
-void QmlAVDecoderWorker::decodeAVPacket(AVPacket avPacket)
+void QmlAVDecoderWorker::decodeAVPacket(AVPacket *avPacket)
 {
     int ret;
 
-    if (m_decoderCtx) {
+    if (m_decoderCtx && avPacket) {
         // Submit the packet to the decoder
-        ret = avcodec_send_packet(m_decoderCtx->m_avCodecCtx, &avPacket);
+        ret = avcodec_send_packet(m_decoderCtx->m_avCodecCtx, avPacket);
         if (ret < 0) {
-            logError(this, QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));  // TODO:
+            logError(this, QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
         }
 
         // Get all the available frames from the decoder
@@ -37,10 +37,10 @@ void QmlAVDecoderWorker::decodeAVPacket(AVPacket avPacket)
                 // Those two return values are special and mean there is no output
                 // frame available, but there were no errors during decoding
                 if (ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
-                    logError(this, QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));  // TODO:
+                    logError(this, QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
                 }
 
-                av_packet_unref(&avPacket);
+                av_packet_unref(avPacket);
                 return;
             }
 
@@ -52,7 +52,7 @@ void QmlAVDecoderWorker::decodeAVPacket(AVPacket avPacket)
         }
     }
 
-    av_packet_unref(&avPacket);
+    av_packet_unref(avPacket);
     return;
 }
 
@@ -202,17 +202,23 @@ double QmlAVDecoder::clock() const
     return m_startTime + pts * timeBase();
 }
 
-void QmlAVDecoder::decodeAVPacket(AVPacket &avPacket)
+void QmlAVDecoder::decodeAVPacket(AVPacket *avPacket)
 {
-    if (m_asyncMode) {
-        emit workerDecodeAVPacket(avPacket);
-    } else {
-        m_worker->decodeAVPacket(avPacket);
-    }
+    if (avPacket) {
+        AVPacket *avPacket1 = av_packet_alloc();
+        if (!avPacket) {
+            logError(this, "Could not allocate AVPacket");
+            return;
+        }
 
-    av_init_packet(&avPacket);
-    avPacket.data = nullptr;
-    avPacket.size = 0;
+        av_packet_move_ref(avPacket1, avPacket);
+
+        if (m_asyncMode) {
+            emit workerDecodeAVPacket(avPacket1);
+        } else {
+            m_worker->decodeAVPacket(avPacket1);
+        }
+    }
 }
 
 QmlAVVideoDecoder::QmlAVVideoDecoder(QmlAVDemuxer *parent)
