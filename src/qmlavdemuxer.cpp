@@ -203,11 +203,7 @@ void QmlAVDemuxer::setSupportedPixelFormats(const QList<QVideoFrame::PixelFormat
 void QmlAVDemuxer::run()
 {
     int ret;
-#ifdef FF_API_INIT_PACKET
     AVPacket *avPacket;
-#else
-    AVPacket avPacket1, *avPacket = &avPacket1;
-#endif
     qint64 clock = 0;
     double timeBase = 0;
 
@@ -235,17 +231,11 @@ void QmlAVDemuxer::run()
             break;
         }
 
-#ifdef FF_API_INIT_PACKET
         avPacket = av_packet_alloc();
         if (!avPacket) {
             logError(this, "Could not allocate AVPacket");
             break;
         }
-#else
-        av_init_packet(avPacket);
-        avPacket->data = nullptr;
-        avPacket->size = 0;
-#endif
 
         m_interruptCallback.startTimer();
         ret = av_read_frame(m_formatCtx, avPacket);
