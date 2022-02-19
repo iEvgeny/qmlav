@@ -3,6 +3,12 @@
 
 #include <QtCore>
 
+#if (LIBAVFORMAT_VERSION_MAJOR < 59)
+    #define LIBAVFORMAT_CONST
+#else
+    #define LIBAVFORMAT_CONST const
+#endif
+
 #undef av_err2str
 #define av_err2str(errnum) \
     av_make_error_string(reinterpret_cast<char*>(alloca(AV_ERROR_MAX_STRING_SIZE)), AV_ERROR_MAX_STRING_SIZE, errnum)

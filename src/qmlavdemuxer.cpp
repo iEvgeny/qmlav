@@ -101,7 +101,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
         return;
     }
 
-#if (LIBAVCODEC_VERSION_MAJOR < 58)
+#if (LIBAVFORMAT_VERSION_MAJOR < 58)
     av_register_all();
     avformat_network_init();
 #endif
