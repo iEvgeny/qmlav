@@ -70,7 +70,7 @@ protected:
 private:
     bool m_realtime;
     AVFormatContext *m_formatCtx;
-    AVInputFormat *m_avInputFormat;
+    const AVInputFormat *m_avInputFormat;
     AVDictionary *m_avFormatOptions;
 
     QmlAVInterruptCallback m_interruptCallback;

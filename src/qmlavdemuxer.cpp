@@ -101,7 +101,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QVariantMap &formatOptions)
         return;
     }
 
-#ifndef FF_API_NEXT
+#if (LIBAVCODEC_VERSION_MAJOR < 58)
     av_register_all();
     avformat_network_init();
 #endif

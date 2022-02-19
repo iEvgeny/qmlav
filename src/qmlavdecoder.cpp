@@ -148,7 +148,7 @@ bool QmlAVDecoder::openCodec(AVStream *stream)
         return false;
     }
 
-    AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
+    const AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
     if (codec == NULL) {
         logError(this, "Unable find decoder");
         return false;
