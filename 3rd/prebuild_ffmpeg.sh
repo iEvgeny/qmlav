@@ -9,7 +9,7 @@ if [[ -z ${ANDROID_API_VERSION} ]]; then
     ANDROID_API_VERSION=28
 fi
 if [[ -z ${ANDROID_ABI} ]]; then
-    ANDROID_ABI=x86
+    ANDROID_ABI=armeabi-v7a
 fi
 
 # Available in QMake runtime variables
