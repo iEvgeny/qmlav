@@ -27,8 +27,8 @@ public:
     QmlAVFrame(qint64 startTime, QmlAVFrame::Type type = QmlAVFrame::TypeUnknown);
     virtual ~QmlAVFrame() {}
 
-    virtual bool isValid() const { return false; }
-    virtual void fromAVFrame(AVFrame *avFrame) { Q_UNUSED(avFrame); }
+    virtual bool isValid() const = 0;
+    virtual void fromAVFrame(AVFrame *avFrame) = 0;
     QmlAVFrame::Type type() const { return m_type; }
     qint64 startTime() const { return m_startTime; }
 

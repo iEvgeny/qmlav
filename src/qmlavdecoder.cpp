@@ -40,7 +40,7 @@ void QmlAVDecoderWorker::decodeAVPacket(AVPacket *avPacket)
                     logError(this, QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret));
                 }
 
-                av_packet_unref(avPacket);
+                av_packet_free(&avPacket);
                 return;
             }
 
@@ -52,7 +52,7 @@ void QmlAVDecoderWorker::decodeAVPacket(AVPacket *avPacket)
         }
     }
 
-    av_packet_unref(avPacket);
+    av_packet_free(&avPacket);
     return;
 }
 

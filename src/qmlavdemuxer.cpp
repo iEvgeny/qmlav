@@ -248,7 +248,7 @@ void QmlAVDemuxer::run()
                 setStatus(QMediaPlayer::StalledMedia);
             }
             setPlaybackState(QMediaPlayer::StoppedState);
-            av_packet_unref(avPacket); // Important!
+            av_packet_free(&avPacket); // Important!
             break;
         }
         m_interruptCallback.stopTimer();
@@ -279,6 +279,7 @@ void QmlAVDemuxer::run()
         if (!m_realtime) {
             while (clock > av_gettime()) {
                 if (isInterruptionRequested()) {
+                    av_packet_free(&avPacket);
                     break;
                 }
 
@@ -294,7 +295,7 @@ void QmlAVDemuxer::run()
         }
 
         QCoreApplication::processEvents();
-        av_packet_unref(avPacket);
+        av_packet_free(&avPacket);
     }
 
     m_running = false;
