@@ -21,5 +21,5 @@ QString QmlAVUtils::logPrefix(QObject *sender)
         className = sender->metaObject()->className();
     }
 
-    return QString("%1 @ %2").arg(className, QString().number(reinterpret_cast<quintptr>(sender), 16));
+    return QString("%1 @ 0x%2").arg(className, QString().number(reinterpret_cast<quintptr>(sender), 16));
 }
