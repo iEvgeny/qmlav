@@ -63,7 +63,7 @@ LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 ```
 #include "qmlavplayer.h"
 
-qmlRegisterType<FFPlayer>("QmlAV.Multimedia", 1, 0, "QmlAVPlayer");
+qmlRegisterType<QmlAVPlayer>("QmlAV.Multimedia", 1, 0, "QmlAVPlayer");
 
 ...
 ```
