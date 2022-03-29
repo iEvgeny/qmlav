@@ -25,7 +25,7 @@ $ export ANDROID_ABI=armeabi-v7a ANDROID_NDK_ROOT=~/Android/Sdk/ndk/21.1.6352462
 * For CMake
 
 ```
-find_package(Qt5 Multimedia REQUIRED)
+find_package(Qt5 5.12 COMPONENTS Core Quick Multimedia REQUIRED)
 
 add_subdirectory(qmlav)
 
