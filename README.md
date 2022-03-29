@@ -20,7 +20,7 @@ $ cd 3rd/FFmpeg && git submodule update --init
 $ export ANDROID_ABI=armeabi-v7a ANDROID_NDK_ROOT=~/Android/Sdk/ndk/21.1.6352462 && ../prebuild_ffmpeg.sh # Supported architectures: armeabi-v7a, arm64-v8a, x86, x86_64
 ```
 
-2. Setup your project:
+2. Setup your project (Roughly. For details, see https://github.com/iEvgeny/cctv-viewer):
 
 * For CMake
 
@@ -30,9 +30,15 @@ find_package(Qt5 Multimedia REQUIRED)
 add_subdirectory(qmlav)
 
 if (ANDROID)
+    add_library(${TARGET} SHARED ${PROJ_FILES} ${QMLAV_FILES})
+
     target_include_directories(${TARGET} PRIVATE "${CMAKE_SOURCE_DIR}/qmlav/3rd/FFmpeg/ffbuild/${ANDROID_ABI}/include")
     target_link_directories(${TARGET} PRIVATE "${CMAKE_SOURCE_DIR}/qmlav/3rd/FFmpeg/ffbuild/${ANDROID_ABI}/lib")
+else()
+    add_executable(${TARGET} ${PROJ_FILES} ${QMLAV_FILES})
 endif()
+
+target_include_directories(${TARGET} PRIVATE ${QMLAV_INCLUDE})
 
 target_link_libraries(${TARGET} PRIVATE avformat avcodec avutil swscale swresample avdevice)
 ```
@@ -42,7 +48,7 @@ target_link_libraries(${TARGET} PRIVATE avformat avcodec avutil swscale swresamp
 ```
 QT += quick multimedia
 
-include($$PWD/qmlav/qmlav.pri)
+include(qmlav/qmlav.pri)
 
 android {
     INCLUDEPATH += ./qmlav/3rd/FFmpeg
@@ -55,7 +61,7 @@ LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 3. Register the QML type before using:
 
 ```
-#include <qmlavplayer.h>
+#include "qmlavplayer.h"
 
 qmlRegisterType<FFPlayer>("QmlAV.Multimedia", 1, 0, "QmlAVPlayer");
 

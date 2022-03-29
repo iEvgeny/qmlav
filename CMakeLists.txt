@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.14)
 
+set(QMLAV_INCLUDE
+    ${CMAKE_CURRENT_LIST_DIR}/src
+    PARENT_SCOPE
+)
+
 set(QMLAV_FILES
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavaudioqueue.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavaudioqueue.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavdecoder.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavdecoder.h
