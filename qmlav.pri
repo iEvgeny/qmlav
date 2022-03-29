@@ -1,5 +1,7 @@
 #DEFINES += NO_DEBUG
 
+INCLUDEPATH += $$PWD/src
+
 HEADERS += \
     $$PWD/src/qmlavaudioqueue.h \
     $$PWD/src/qmlavdecoder.h \

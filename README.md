@@ -42,7 +42,7 @@ target_link_libraries(${TARGET} PRIVATE avformat avcodec avutil swscale swresamp
 ```
 QT += quick multimedia
 
-include(qmlav/qmlav.pri)
+include($$PWD/qmlav/qmlav.pri)
 
 android {
     INCLUDEPATH += ./qmlav/3rd/FFmpeg
@@ -55,7 +55,7 @@ LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 3. Register the QML type before using:
 
 ```
-#include "qmlav/src/qmlavplayer.h"
+#include <qmlavplayer.h>
 
 qmlRegisterType<FFPlayer>("QmlAV.Multimedia", 1, 0, "QmlAVPlayer");
 
