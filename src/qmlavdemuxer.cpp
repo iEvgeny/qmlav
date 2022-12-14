@@ -78,6 +78,9 @@ bool QmlAVDemuxer::wait(unsigned long time)
         if (time == 0) {
             return false;
         }
+
+        // TODO: See description for this function:
+        // "Avoid using this function if you need to wait for a given condition to change..."
         QThread::msleep(1);
         --time;
     }
