@@ -250,14 +250,21 @@ void QmlAVVideoDecoder::setSupportedPixelFormats(const QList<QVideoFrame::PixelF
 QVideoSurfaceFormat QmlAVVideoDecoder::videoFormat() const
 {
     QSize size(0, 0);
+    QVideoSurfaceFormat::YCbCrColorSpace colorSpace = QVideoSurfaceFormat::YCbCr_Undefined;
 
     if (codecIsOpen()) {
         size.setWidth(m_avCodecCtx->width);
         size.setHeight(m_avCodecCtx->height);
+
+        // Full range content detection (MJPEG and etc.)
+        if (m_avCodecCtx->color_range == AVCOL_RANGE_JPEG) {
+            colorSpace = QVideoSurfaceFormat::YCbCr_JPEG;
+        }
     }
 
     QVideoSurfaceFormat format(size, m_surfacePixelFormat);
     format.setPixelAspectRatio(pixelAspectRatio());
+    format.setYCbCrColorSpace(colorSpace);
     return format;
 }
 
