@@ -10,7 +10,7 @@ FFmpeg-based real-time QML stream player
 * For Debian
 
 ```
-# apt-get install libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev libavdevice-dev
+# apt-get install libva-dev libglx-dev libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev libavdevice-dev libgtest-dev
 ```
 
 * or for Android
@@ -21,8 +21,6 @@ $ export ANDROID_ABI=armeabi-v7a ANDROID_NDK_ROOT=~/Android/Sdk/ndk/21.1.6352462
 ```
 
 2. Setup your project (Roughly. For details, see https://github.com/iEvgeny/cctv-viewer):
-
-* For CMake
 
 ```
 find_package(Qt5 5.12 COMPONENTS Core Quick Multimedia REQUIRED)
@@ -41,21 +39,6 @@ endif()
 target_include_directories(${TARGET} PRIVATE ${QMLAV_INCLUDE})
 
 target_link_libraries(${TARGET} PRIVATE avformat avcodec avutil swscale swresample avdevice)
-```
-
-* or for QMake
-
-```
-QT += quick multimedia
-
-include(qmlav/qmlav.pri)
-
-android {
-    INCLUDEPATH += ./qmlav/3rd/FFmpeg
-    DEPENDPATH += ./qmlav/3rd/FFmpeg
-}
-
-LIBS += -lavcodec -lavdevice -lavformat -lavutil -lswresample -lswscale
 ```
 
 3. Register the QML type before using:
