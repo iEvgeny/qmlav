@@ -1,17 +1,11 @@
 #ifndef QMLAVFRAME_H
 #define QMLAVFRAME_H
 
-extern "C" {
-    #include <libavformat/avformat.h>
-    #include <libavutil/imgutils.h>
-    #include <libswscale/swscale.h>
-    #include <libswresample/swresample.h>
-}
-
-#include <memory>
 #include <QtCore>
 #include <QVideoFrame>
+#include <QAudioFormat>
 
+#include "qmlavutils.h"
 #include "qmlavformat.h"
 
 class QmlAVFrame
@@ -24,50 +18,56 @@ public:
         TypeAudio
     };
 
-    QmlAVFrame(qint64 startTime, QmlAVFrame::Type type = QmlAVFrame::TypeUnknown);
-    virtual ~QmlAVFrame() {}
+    QmlAVFrame(const AVFramePtr &avFramePtr, Type type = TypeUnknown);
+    QmlAVFrame(const QmlAVFrame &other);
+    virtual ~QmlAVFrame();
+
+    QmlAVFrame &operator=(const QmlAVFrame &other);
+
+    Type type() const { return m_type; }
 
     virtual bool isValid() const = 0;
-    virtual void fromAVFrame(AVFrame *avFrame) = 0;
-    QmlAVFrame::Type type() const { return m_type; }
-    qint64 startTime() const { return m_startTime; }
+    AVFramePtr &avFrame() { return m_avFrame; }
+    const AVFramePtr &avFrame() const { return m_avFrame; }
+    int64_t pts() const;
+
+protected:
+    template<typename T>
+    T *decoder() const { return static_cast<T *>(m_avFrame->opaque); }
 
 private:
-    QmlAVFrame::Type m_type;
-    qint64 m_startTime; // Absolute microsecond timestamp
-
-    friend class QmlAVVideoFrame;
-    friend class QmlAVAudioFrame;
+    AVFramePtr m_avFrame;
+    Type m_type;
 };
 
-class QmlAVVideoFrame : public QmlAVFrame
+class QmlAVVideoFrame final : public QmlAVFrame
 {
 public:
-    QmlAVVideoFrame(qint64 startTime);
+    QmlAVVideoFrame(const AVFramePtr &avFramePtr);
 
-    virtual bool isValid() const override;
-    virtual void fromAVFrame(AVFrame *avFrame) override;
-    QVideoFrame::PixelFormat pixelFormat() const { return m_pixelFormat; }
-    void setPixelFormat(QVideoFrame::PixelFormat format) { m_pixelFormat = format; }
-    QVideoFrame& toVideoFrame() { return m_videoFrame; }
-    operator QVideoFrame&() { return m_videoFrame; }
+    bool isValid() const override;
 
-private:
-    QVideoFrame m_videoFrame;
-    QVideoFrame::PixelFormat m_pixelFormat;
+    QSize size() const { return {avFrame()->width, avFrame()->height}; }
+    QSize sampleAspectRatio() const;
+    bool isHWDecoded() const { return avFrame()->hw_frames_ctx; }
+    QmlAVPixelFormat pixelFormat() const { return avFrame()->format; }
+    QmlAVPixelFormat swPixelFormat() const;
+    QmlAVColorSpace colorSpace() const;
+
+    operator QVideoFrame() const;
 };
 
-class QmlAVAudioFrame : public QmlAVFrame
+class QmlAVAudioFrame final : public QmlAVFrame
 {
 public:
-    QmlAVAudioFrame(qint64 startTime);
-    virtual ~QmlAVAudioFrame();
+    QmlAVAudioFrame(const AVFramePtr &avFramePtr);
+    ~QmlAVAudioFrame() override;
 
-    virtual bool isValid() const override;
-    virtual void fromAVFrame(AVFrame *avFrame) override;
+    bool isValid() const override;
+
     QAudioFormat audioFormat() const { return m_audioFormat; }
     void setAudioFormat(const QAudioFormat &format) { m_audioFormat = format; }
-    char *data() const { return reinterpret_cast<char*>(m_data); }
+    char *data() const { return reinterpret_cast<char *>(m_data); }
     int dataSize() const { return m_dataSize; }
 
 private:
