@@ -1,77 +1,149 @@
 #include "qmlavframe.h"
 #include "qmlavdecoder.h"
+#include "qmlavvideobuffer.h"
 
-QmlAVFrame::QmlAVFrame(qint64 startTime, QmlAVFrame::Type type)
-    : m_type(type),
-      m_startTime(startTime)
-{
+extern "C" {
+#include <libavutil/imgutils.h>
+#include <libswresample/swresample.h>
 }
 
-QmlAVVideoFrame::QmlAVVideoFrame(qint64 startTime)
-    : QmlAVFrame(startTime, QmlAVFrame::TypeVideo),
-      m_pixelFormat(QVideoFrame::Format_Invalid)
+QmlAVFrame::QmlAVFrame(const AVFramePtr &avFramePtr, Type type)
+    : m_avFrame(avFramePtr)
+    , m_type(type)
+{
+    assert(m_avFrame);
+    decoder<QmlAVDecoder>()->counters().frameQueueLengthAdd();
+}
+
+QmlAVFrame::QmlAVFrame(const QmlAVFrame &other) : QmlAVFrame(other.m_avFrame, other.m_type) { }
+
+QmlAVFrame::~QmlAVFrame()
+{
+    decoder<QmlAVDecoder>()->counters().frameQueueLengthSub();
+}
+
+QmlAVFrame &QmlAVFrame::operator=(const QmlAVFrame &other)
+{
+    if (this != std::addressof(other)) {
+        m_avFrame = other.m_avFrame;
+        m_type = other.m_type;
+        decoder<QmlAVDecoder>()->counters().frameQueueLengthAdd();
+    }
+
+    return *this;
+}
+
+int64_t QmlAVFrame::pts() const
+{
+    int64_t pts = 0;
+    if (m_avFrame->pts != AV_NOPTS_VALUE) {
+        pts = m_avFrame->pts;
+    } else {
+        pts = m_avFrame->best_effort_timestamp;
+    }
+
+    return pts * decoder<QmlAVDecoder>()->timeBaseUs();
+}
+
+QmlAVVideoFrame::QmlAVVideoFrame(const AVFramePtr &avFramePtr)
+    : QmlAVFrame(avFramePtr, TypeVideo)
 {
 }
 
 bool QmlAVVideoFrame::isValid() const
 {
-    if (m_type == QmlAVFrame::TypeVideo) {
-        return m_videoFrame.isValid();
-    }
-
-    return false;
+    return avFrame() && (avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3]);
 }
 
-#define FFMPEG_ALIGNMENT (32)
-
-void QmlAVVideoFrame::fromAVFrame(AVFrame *avFrame)
+QSize QmlAVVideoFrame::sampleAspectRatio() const
 {
-    SwsContext *swsCtx = nullptr;
-    uint8_t *dstData[AV_NUM_DATA_POINTERS] = {};
-    int dstLinesize[AV_NUM_DATA_POINTERS] = {};
+    AVRational sar = {1, 1};
 
-    if (!avFrame) {
-        return;
-    }
+    if (isValid()) {
+        auto codecpar = decoder<QmlAVVideoDecoder>()->stream()->codecpar;
 
-    AVPixelFormat srcAVFormat = QmlAVVideoFormat::normalizeFFmpegPixelFormat(static_cast<AVPixelFormat>(avFrame->format));
-    AVPixelFormat dstAVFormat = QmlAVVideoFormat::ffmpegFormatFromPixelFormat(m_pixelFormat);
-
-    swsCtx = sws_getContext(avFrame->width, avFrame->height,
-                            srcAVFormat,
-                            avFrame->width, avFrame->height,
-                            dstAVFormat,
-                            SWS_POINT,
-                            nullptr, nullptr, nullptr);
-
-    int size = av_image_fill_arrays(dstData, dstLinesize, nullptr, dstAVFormat, avFrame->width, avFrame->height, FFMPEG_ALIGNMENT);
-
-    m_videoFrame = QVideoFrame(size,
-                               QSize(avFrame->width, avFrame->height),
-                               dstLinesize[0],
-                               m_pixelFormat);
-    m_videoFrame.setStartTime(m_startTime);
-
-    if (m_videoFrame.map(QAbstractVideoBuffer::WriteOnly)) {
-        if (swsCtx) {
-            int i = 0;
-            while (m_videoFrame.bits(i)) {
-                dstData[i] = m_videoFrame.bits(i);
-                ++i;
-            }
-
-            sws_scale(swsCtx, avFrame->data, avFrame->linesize, 0, avFrame->height, dstData, dstLinesize);
-            sws_freeContext(swsCtx);
+        if (avFrame()->sample_aspect_ratio.num) {
+            sar = avFrame()->sample_aspect_ratio;
+        } else if (codecpar->sample_aspect_ratio.num) {
+            sar = codecpar->sample_aspect_ratio;
         }
-        m_videoFrame.unmap();
     }
+
+    return QSize(sar.num, sar.den);
 }
 
-QmlAVAudioFrame::QmlAVAudioFrame(qint64 startTime)
-    : QmlAVFrame(startTime, QmlAVFrame::TypeAudio),
-      m_data(nullptr),
-      m_dataSize(0)
+QmlAVPixelFormat QmlAVVideoFrame::swPixelFormat() const
 {
+    if (isHWDecoded()) {
+        AVHWFramesContext *hwFramesCtx = reinterpret_cast<AVHWFramesContext *>(avFrame()->hw_frames_ctx->data);
+        return hwFramesCtx->sw_format;
+    }
+
+    return pixelFormat();
+}
+
+// YUV colormodel/YCbCr colorspace
+QmlAVColorSpace QmlAVVideoFrame::colorSpace() const
+{
+    // NOTE: Color space support in Qt5 is in its infancy.
+    if (avFrame()->color_range == AVCOL_RANGE_JPEG) {
+        // QVideoSurfaceFormat::YCbCr_xvYCC601 and ::YCbCr_xvYCC709 do NOT implement color space with extended value range.
+        // This is the same as ::YCbCr_BT601 and ::YCbCr_BT709 respectively.
+        // ::YCbCr_JPEG is a modified BT.601 with a full 8-bit range [0...255] and gives expected result in all cases.
+        return AVCOL_SPC_RGB;
+    }
+
+    return avFrame()->colorspace;
+}
+
+QmlAVVideoFrame::operator QVideoFrame() const
+{
+    QmlAVVideoBuffer *buffer;
+
+    if (isHWDecoded()) {
+        buffer = new QmlAVVideoBuffer_GPU(*this, decoder<QmlAVVideoDecoder>()->hwOutput());
+    } else {
+        buffer = new QmlAVVideoBuffer_CPU(*this);
+    }
+
+    return QVideoFrame(buffer, size(), buffer->pixelFormat());
+}
+
+QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFramePtr)
+    : QmlAVFrame(avFramePtr, TypeAudio)
+    , m_data(nullptr)
+    , m_dataSize(0)
+{
+    SwrContext *swrCtx = nullptr;
+
+    int64_t channelLayout = avFrame()->channel_layout != 0 ? avFrame()->channel_layout : av_get_default_channel_layout(avFrame()->channels);
+    AVSampleFormat outSampleFormat = av_get_packed_sample_fmt(static_cast<AVSampleFormat>(avFrame()->format));
+
+    swrCtx = swr_alloc_set_opts(nullptr,
+                                channelLayout,
+                                outSampleFormat,
+                                avFrame()->sample_rate,
+                                channelLayout,
+                                static_cast<AVSampleFormat>(avFrame()->format),
+                                avFrame()->sample_rate,
+                                0, nullptr);
+
+    if (swr_init(swrCtx) == 0) {
+        m_dataSize = av_samples_get_buffer_size(nullptr, avFrame()->channels, avFrame()->nb_samples, outSampleFormat, 0);
+//        m_dataSize = avFrame()->channels * avFrame()->nb_samples * av_get_bytes_per_sample(outSampleFormat);
+        m_data = new uint8_t[m_dataSize];
+
+        // TODO: For the "sws_" functions family we need also to set color range. See sws_setColorspaceDetails().
+        swr_convert(swrCtx,
+                    &m_data,
+                    avFrame()->nb_samples,
+                    const_cast<const uint8_t**>(avFrame()->data),
+                    avFrame()->nb_samples);
+    }
+
+    if (swrCtx) {
+        swr_free(&swrCtx);
+    }
 }
 
 QmlAVAudioFrame::~QmlAVAudioFrame()
@@ -86,41 +158,4 @@ bool QmlAVAudioFrame::isValid() const
     }
 
     return false;
-}
-
-void QmlAVAudioFrame::fromAVFrame(AVFrame *avFrame)
-{
-    SwrContext *swrCtx = nullptr;
-
-    if (!avFrame || m_data) {
-        return;
-    }
-
-    int64_t channelLayout = avFrame->channel_layout != 0 ? avFrame->channel_layout : av_get_default_channel_layout(avFrame->channels);
-    AVSampleFormat outSampleFormat = av_get_packed_sample_fmt(static_cast<AVSampleFormat>(avFrame->format));
-
-    swrCtx = swr_alloc_set_opts(nullptr,
-                                channelLayout,
-                                outSampleFormat,
-                                avFrame->sample_rate,
-                                channelLayout,
-                                static_cast<AVSampleFormat>(avFrame->format),
-                                avFrame->sample_rate,
-                                0, nullptr);
-
-    if (swr_init(swrCtx) == 0) {
-        m_dataSize = av_samples_get_buffer_size(nullptr, avFrame->channels, avFrame->nb_samples, outSampleFormat, 0);
-//        m_dataSize = avFrame->channels * avFrame->nb_samples * av_get_bytes_per_sample(outSampleFormat);
-        m_data = new uint8_t[m_dataSize];
-
-        swr_convert(swrCtx,
-                    &m_data,
-                    avFrame->nb_samples,
-                    const_cast<const uint8_t**>(avFrame->data),
-                    avFrame->nb_samples);
-    }
-
-    if (swrCtx) {
-        swr_free(&swrCtx);
-    }
 }

@@ -1,7 +1,16 @@
 #ifndef QMLAVUTILS_H
 #define QMLAVUTILS_H
 
+extern "C" {
+#include <libavformat/avformat.h>
+}
+
+#include <cxxabi.h>
+
 #include <QtCore>
+
+#define FFMPEG_ALIGNMENT (av_cpu_max_align())
+#define QMLAV_NUM_DATA_POINTERS (4)
 
 #if (LIBAVFORMAT_VERSION_MAJOR < 59)
     #define LIBAVFORMAT_CONST
@@ -11,37 +20,146 @@
 
 #undef av_err2str
 #define av_err2str(errnum) \
-    av_make_error_string(reinterpret_cast<char*>(alloca(AV_ERROR_MAX_STRING_SIZE)), AV_ERROR_MAX_STRING_SIZE, errnum)
+    av_make_error_string(static_cast<char *>(alloca(AV_ERROR_MAX_STRING_SIZE)), AV_ERROR_MAX_STRING_SIZE, errnum)
 
-class QmlAVDemuxer;
+// Used to safely transfer data between threads and simplify memory management.
+template<typename T>
+class AVSmartPtr
+{
+public:
+    AVSmartPtr() { m_ref = av_alloc(); }
+    AVSmartPtr(const T *ref) noexcept { m_ref = ref; assert(m_ref); }
+    AVSmartPtr(const AVSmartPtr &other) {
+        m_ref = av_alloc();
+        if (m_ref && other.m_ref) {
+            av_ref(m_ref, other.m_ref);
+        }
+    }
+    AVSmartPtr(AVSmartPtr &&other) {
+        m_ref = av_alloc();
+        if (m_ref && other.m_ref) {
+            av_move_ref(m_ref, other.m_ref);
+        }
+    }
+    virtual ~AVSmartPtr() {
+        av_free(&m_ref);
+    }
+
+    T *get() const noexcept { return m_ref; }
+    AVSmartPtr move_ref() {
+        AVSmartPtr tmp;
+        if (m_ref) {
+            av_move_ref(tmp.m_ref, m_ref);
+        }
+        return tmp;
+    }
+    void unref() { av_unref(m_ref); }
+
+    explicit operator bool() const noexcept { return m_ref != nullptr; }
+    operator T *() const noexcept { return m_ref; }
+    T *operator->() const noexcept { return m_ref; }
+    T &operator*() const noexcept { return *m_ref; }
+    AVSmartPtr &operator=(const AVSmartPtr &other) {
+        if (m_ref && other.m_ref && this != std::addressof(other)) {
+            av_unref(m_ref);
+            av_ref(m_ref, other.m_ref);
+        }
+        return *this;
+    }
+    AVSmartPtr &operator=(AVSmartPtr &&other) {
+        if (m_ref && other.m_ref && this != std::addressof(other)) {
+            av_unref(m_ref);
+            av_move_ref(m_ref, other.m_ref);
+        }
+        return *this;
+    }
+
+    // NOTE: Using static polymorphism to ensure that methods can be called in the constructor and destructor.
+    // These prototypes must be implemented in derived classes.
+    static T *av_alloc();
+    static void av_ref(T *dst, T *src);
+    static void av_unref(T *ref);
+    static void av_move_ref(T *dst, T *src);
+    static void av_free(T **ref);
+
+private:
+    T *m_ref;
+};
+
+using AVPacketPtr = AVSmartPtr<AVPacket>;
+template<> inline AVPacket *AVSmartPtr<AVPacket>::av_alloc() { return av_packet_alloc(); }
+template<> inline void AVSmartPtr<AVPacket>::av_ref(AVPacket *dst, AVPacket *src) { av_packet_ref(dst, src); }
+template<> inline void AVSmartPtr<AVPacket>::av_unref(AVPacket *ref) { av_packet_unref(ref); }
+template<> inline void AVSmartPtr<AVPacket>::av_move_ref(AVPacket *dst, AVPacket *src) { av_packet_move_ref(dst, src); }
+template<> inline void AVSmartPtr<AVPacket>::av_free(AVPacket **ref) { av_packet_free(ref); }
+
+using AVFramePtr = AVSmartPtr<AVFrame>;
+template<> inline AVFrame *AVSmartPtr<AVFrame>::av_alloc() { return av_frame_alloc(); }
+template<> inline void AVSmartPtr<AVFrame>::av_ref(AVFrame *dst, AVFrame *src) { av_frame_ref(dst, src); }
+template<> inline void AVSmartPtr<AVFrame>::av_unref(AVFrame *ref) { av_frame_unref(ref); }
+template<> inline void AVSmartPtr<AVFrame>::av_move_ref(AVFrame *dst, AVFrame *src) { av_frame_move_ref(dst, src); }
+template<> inline void AVSmartPtr<AVFrame>::av_free(AVFrame **ref) { av_frame_free(ref); }
+
+namespace QmlAV
+{
+enum LogControl {
+    Space,
+    NoSpace,
+    Quote,
+    NoQuote
+};
+}
+
+#ifndef QT_NO_DEBUG_STREAM
+inline QDebug operator<<(QDebug dbg, QmlAV::LogControl logCtrl)
+{
+    switch (logCtrl) {
+    case QmlAV::Space:
+        return dbg.space();
+    case QmlAV::NoSpace:
+        return dbg.nospace();
+    case QmlAV::Quote:
+        return dbg.quote();
+    case QmlAV::NoQuote:
+        return dbg.noquote();
+    }
+
+    return dbg;
+}
+inline QDebug operator<<(QDebug dbg, const std::string& str)
+{
+    return dbg << QString::fromStdString(str);
+}
+#endif
 
 class QmlAVUtils
 {
 public:
-    enum LogLevel {
-        LogError = 0,
-        LogInfo,
-        LogVerbose,
-        LogDebug
-    };
+    static QLoggingCategory &loggingCategory() { return m_loggingCategory; }
+    template<typename T>
+    static QString rttiTypeName(const T &type) {
+        char *n = abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr);
+        QString ret(n);
+        free(n);
+        return ret;
+    }
+    template<typename T>
+    static QString logPrefix(const T *sender) {
+        return QString("[%1 @ 0x%2] ").arg(rttiTypeName(*sender), QString().number(reinterpret_cast<uintptr_t>(sender), 16));
+    }
+    template<typename T>
+    static QDebug log(const T *sender, QDebug logger) {
+        return logger.nospace().noquote() << QmlAVUtils::logPrefix(sender);
+    }
 
-    static int verboseLevel();
-    static void log(const QString prefix, QmlAVUtils::LogLevel logLevel, const QString message);
-    static void logError(QObject *sender, const QString message) { log(logPrefix(sender), QmlAVUtils::LogError, message); }
-    static void logInfo(QObject *sender, const QString message) { log(logPrefix(sender), QmlAVUtils::LogInfo, message); }
-    static void logVerbose(QObject *sender, const QString message) { log(logPrefix(sender), QmlAVUtils::LogVerbose, message); }
-    static void logDebug(QObject *sender, const QString message) { log(logPrefix(sender), QmlAVUtils::LogDebug, message); }
-    static QString logPrefix(QObject *sender);
+private:
+    static QLoggingCategory m_loggingCategory;
 };
 
-#define logError(sender, message) QmlAVUtils::logError(qobject_cast<QObject *>(sender), message)
-#define logInfo(sender, message) QmlAVUtils::logInfo(qobject_cast<QObject *>(sender), message)
-#define logVerbose(sender, message) QmlAVUtils::logVerbose(qobject_cast<QObject *>(sender), message)
+#define logDebug() QmlAVUtils::log(this, QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).debug(QmlAVUtils::loggingCategory()))
+#define logInfo() QmlAVUtils::log(this, QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).info(QmlAVUtils::loggingCategory()))
+#define logWarning() QmlAVUtils::log(this, QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).warning(QmlAVUtils::loggingCategory()))
+#define logCritical() QmlAVUtils::log(this, QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).critical(QmlAVUtils::loggingCategory()))
 
-#ifdef NO_DEBUG
-    #define logDebug(sender, message) (void)sender; (void)message;
-#else
-    #define logDebug(sender, message) QmlAVUtils::logDebug(qobject_cast<QObject *>(sender), message)
-#endif
 
 #endif // QMLAVUTILS_H

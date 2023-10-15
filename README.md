@@ -90,7 +90,7 @@ Item {
         loops: MediaPlayer.Infinite
         source: rtmp://example.ru/stream/name
 
-        avFormatOptions: {
+        avOptions: {
             'probesize': 500000,  // 500 KB
             'analyzeduration': 0  // 0 µs
         }

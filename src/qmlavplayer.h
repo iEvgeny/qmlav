@@ -1,7 +1,6 @@
 #ifndef QMLAVPLAYER_H
 #define QMLAVPLAYER_H
 
-#include <QtCore>
 #include <QQmlParserStatus>
 #include <QMediaPlayer>
 #include <QAbstractVideoSurface>
@@ -11,7 +10,7 @@
 #include "qmlavdemuxer.h"
 #include "qmlavaudioqueue.h"
 
-#define Q_PROPERTY_WRITE_IMPL(type, name, write, notify) \
+#define PROPERTY_WRITE_IMPL(type, name, write, notify) \
     void write(const type &var) { \
         if (m_##name == var) \
             return; \
@@ -26,7 +25,7 @@ class QmlAVPlayer : public QObject, public QQmlParserStatus
 
     Q_PROPERTY(QAbstractVideoSurface *videoSurface READ videoSurface WRITE setVideoSurface)
 
-    Q_PROPERTY(QVariantMap avFormatOptions READ avFormatOptions WRITE setAVFormatOptions NOTIFY avFormatOptionsChanged)
+    Q_PROPERTY(QVariantMap avOptions READ avOptions WRITE setAVOptions NOTIFY avOptionsChanged)
     Q_PROPERTY(bool autoLoad READ autoLoad WRITE setAutoLoad NOTIFY autoLoadChanged)
     Q_PROPERTY(bool autoPlay READ autoPlay WRITE setAutoPlay NOTIFY autoPlayChanged)
     Q_PROPERTY(int loops READ loops WRITE setLoops NOTIFY loopsChanged) // NOTE: Implemented partially (Once playing and infinite loop behavior)
@@ -40,14 +39,14 @@ class QmlAVPlayer : public QObject, public QQmlParserStatus
     Q_PROPERTY(bool hasAudio READ hasAudio NOTIFY hasAudioChanged)
 
 public:
-    explicit QmlAVPlayer(QObject *parent = nullptr);
-    ~QmlAVPlayer();
+    QmlAVPlayer(QObject *parent = nullptr);
+    ~QmlAVPlayer() override;
 
     QAbstractVideoSurface *videoSurface() const { return m_videoSurface; }
     virtual void classBegin() override {}
     virtual void componentComplete() override;
 
-    QVariantMap avFormatOptions() const { return m_avFormatOptions; }
+    QVariantMap avOptions() const { return m_avOptions; }
     bool autoLoad() const { return m_autoLoad; }
     bool autoPlay() const { return m_autoPlay; }
     int loops() const { return m_loops; }
@@ -64,20 +63,23 @@ public slots:
     void play();
     void stop();
     void setVideoSurface(QAbstractVideoSurface *surface);
+    void frameHandler(const std::shared_ptr<QmlAVFrame> frame);
+    void setAudioFormat(const QAudioFormat &format);
 
-    void setAVFormatOptions(const QVariantMap &options);
+    void setAVOptions(const QVariantMap &avOptions);
     void setAutoLoad(bool autoLoad);
     void setAutoPlay(bool autoPlay);
-    Q_PROPERTY_WRITE_IMPL(int, loops, setLoops, loopsChanged)
+    PROPERTY_WRITE_IMPL(int, loops, setLoops, loopsChanged)
     void setSource(QUrl source);
-    Q_PROPERTY_WRITE_IMPL(bool, muted, setMuted, mutedChanged)
+    void setPlaybackState(const QMediaPlayer::State state);
+    void setStatus(const QMediaPlayer::MediaStatus status);
+    PROPERTY_WRITE_IMPL(bool, muted, setMuted, mutedChanged)
     void setVolume(const QVariant &volume);
+    void setHasVideo(bool hasVideo);
+    void setHasAudio(bool hasAudio);
 
 signals:
-    void demuxerLoad(const QUrl &source, const QVariantMap &formatOptions = QVariantMap());
-    void demuxerSetSupportedPixelFormats(const QList<QVideoFrame::PixelFormat> &formats);
-    void demuxerStart();
-
+    void avOptionsChanged(QVariantMap avOptions);
     void autoLoadChanged(bool autoLoad);
     void autoPlayChanged(bool autoPlay);
     void loopsChanged(int loops);
@@ -89,34 +91,24 @@ signals:
     void volumeChanged(QVariant volume);
     void hasVideoChanged(bool hasVideo);
     void hasAudioChanged(bool hasAudio);
-    void avFormatOptionsChanged(QVariantMap avFormatOptions);
 
 protected:
     bool load();
     void stateMachine();
-
-protected slots:
-    void frameHandler(const std::shared_ptr<QmlAVFrame> frame);
-    void setVideoFormat(const QVideoSurfaceFormat &format);
-    void setAudioFormat(const QAudioFormat &format);
-    void setPlaybackState(const QMediaPlayer::State state);
-    void setStatus(const QMediaPlayer::MediaStatus status);
-    void setHasVideo(bool hasVideo);
-    void setHasAudio(bool hasAudio);
+    void reset();
 
 private:
     bool m_complete;
-    QThread m_thread;
     QmlAVDemuxer *m_demuxer;
-    QVideoSurfaceFormat m_videoFormat;
     QAbstractVideoSurface *m_videoSurface;
+    QTimer m_playTimer;
+
     QmlAVAudioQueue m_audioQueue;
     QAudioDeviceInfo m_audioDeviceInfo;
     QAudioFormat m_audioFormat;
     QAudioOutput *m_audioOutput;
-    QTimer m_playTimer;
 
-    QVariantMap m_avFormatOptions;
+    QVariantMap m_avOptions;
     bool m_autoLoad;
     bool m_autoPlay;
     int m_loops;
