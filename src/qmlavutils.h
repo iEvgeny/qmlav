@@ -2,6 +2,7 @@
 #define QMLAVUTILS_H
 
 extern "C" {
+#include <libavutil/cpu.h>
 #include <libavformat/avformat.h>
 }
 

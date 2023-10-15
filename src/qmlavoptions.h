@@ -9,6 +9,8 @@ extern "C" {
 
 #include <QVariantMap>
 
+#include "qmlavutils.h"
+
 class QmlAVHWOutput;
 
 // Unlike std::unique_ptr, Deleter in std::shared_ptr is not part of the type,
@@ -49,7 +51,7 @@ public:
 
     operator AVDictionaryPtr() const;
 
-    AVInputFormat *avInputFormat() const;
+    LIBAVFORMAT_CONST AVInputFormat *avInputFormat() const;
     AVHWDeviceType avHWDeviceType() const;
     std::shared_ptr<QmlAVHWOutput> hwOutput() const;
 

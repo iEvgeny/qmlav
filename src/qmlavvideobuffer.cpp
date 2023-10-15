@@ -2,8 +2,8 @@
 #include "qmlavformat.h"
 
 extern "C" {
-#include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
+#include <libswscale/swscale.h>
 }
 
 QmlAVVideoBuffer::QmlAVVideoBuffer(const QmlAVVideoFrame &videoFrame, QAbstractVideoBuffer::HandleType type)

@@ -24,7 +24,7 @@ QmlAVOptions::operator AVDictionaryPtr() const
     return dict;
 }
 
-AVInputFormat *QmlAVOptions::avInputFormat() const
+LIBAVFORMAT_CONST AVInputFormat *QmlAVOptions::avInputFormat() const
 {
     LIBAVFORMAT_CONST AVInputFormat *avInputFormat = nullptr;
 

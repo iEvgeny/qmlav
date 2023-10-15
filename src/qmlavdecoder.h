@@ -6,6 +6,8 @@
 
 #include "qmlavthread.h"
 
+struct AVCodecContext;
+
 class QmlAVOptions;
 class QmlAVFrame;
 class QmlAVHWOutput;
