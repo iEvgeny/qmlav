@@ -41,8 +41,10 @@ const std::vector<QmlAVPixelFormat::PixelFormatMap> QmlAVPixelFormat::m_pixelFor
 //    {, QVideoFrame::Format_Jpeg},
 //    {, QVideoFrame::Format_CameraRaw},
 //    {, QVideoFrame::Format_AdobeDng},
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     {AV_PIX_FMT_BGR32, QVideoFrame::Format_ABGR32},
     {AV_PIX_FMT_YUV422P, QVideoFrame::Format_YUV422P, true}
+#endif
 };
 
 QmlAVPixelFormat::QmlAVPixelFormat(AVPixelFormat avPixelFormat)

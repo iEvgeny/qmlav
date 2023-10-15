@@ -108,6 +108,14 @@ enum LogControl {
     Quote,
     NoQuote
 };
+
+inline QTextStream &Hex(QTextStream &s) {
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
+    return ::hex(s);
+#else
+    return Qt::hex(s);
+#endif
+}
 }
 
 #ifndef QT_NO_DEBUG_STREAM

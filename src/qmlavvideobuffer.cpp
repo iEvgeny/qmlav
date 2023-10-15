@@ -32,25 +32,44 @@ int QmlAVVideoBuffer::map(QAbstractVideoBuffer::MapMode mode, int *numBytes, int
     return i;
 }
 
-bool QmlAVVideoBuffer::planesSize(int size[], const AVFramePtr &avFramePtr) const
+bool QmlAVVideoBuffer::planeSizes(int size[]) const
 {
-    int linesize[4];
-    ptrdiff_t alignedLinesSize[QMLAV_NUM_DATA_POINTERS];
-    size_t result[QMLAV_NUM_DATA_POINTERS];
+#if (LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 56, 100))
+    ptrdiff_t lineSizes[QMLAV_NUM_DATA_POINTERS];
+    size_t planeSizes[QMLAV_NUM_DATA_POINTERS];
 
-    if (av_image_fill_linesizes(linesize, static_cast<AVPixelFormat>(avFramePtr->format), avFramePtr->width) >= 0) {
-        for (int i = 0; i < QMLAV_NUM_DATA_POINTERS; ++i) {
-            alignedLinesSize[i] = FFALIGN(linesize[i], FFMPEG_ALIGNMENT);
-        }
-
-        if (av_image_fill_plane_sizes(result, static_cast<AVPixelFormat>(avFramePtr->format), avFramePtr->height, alignedLinesSize) >= 0) {
-            for (int i = 0; i < QMLAV_NUM_DATA_POINTERS; ++i) {
-                size[i] = result[i];
-            }
-
-            return true;
-        }
+    for (int i = 0; i < QMLAV_NUM_DATA_POINTERS; ++i) {
+        lineSizes[i] = m_videoFrame.avFrame()->linesize[i];
     }
+
+    if (av_image_fill_plane_sizes(planeSizes, m_videoFrame.pixelFormat(), m_videoFrame.avFrame()->height, lineSizes) >= 0) {
+        for (int i = 0; i < QMLAV_NUM_DATA_POINTERS; ++i) {
+            size[i] = planeSizes[i];
+        }
+
+        return true;
+    }
+
+#else
+    // Calculating plane sizes from plane pointers
+    uint8_t *data[QMLAV_NUM_DATA_POINTERS];
+    int dataSize = av_image_fill_pointers(data, m_videoFrame.pixelFormat(),
+                                          m_videoFrame.avFrame()->height,
+                                          0, // Initial value for data[0]
+                                          m_videoFrame.avFrame()->linesize);
+    if (dataSize > 0) {
+        for (int i = 0;; ++i) {
+            if (i < QMLAV_NUM_DATA_POINTERS && data[i + 1]) {
+                size[i] = data[i + 1] - data[i];
+            } else {
+                size[i] = reinterpret_cast<uint8_t *>(dataSize) - data[i];
+                break;
+            }
+        }
+
+        return true;
+    }
+#endif
 
     return false;
 }
@@ -102,7 +121,7 @@ QmlAVVideoBuffer::MapData QmlAVVideoBuffer_CPU::map(QAbstractVideoBuffer::MapMod
             }
         }
 
-        if (planesSize(mapData.size, m_videoFrame.avFrame())) {
+        if (planeSizes(mapData.size)) {
             for (int i = 0; i < QMLAV_NUM_DATA_POINTERS; ++i) {
                 mapData.bytesPerLine[i] = m_videoFrame.avFrame()->linesize[i];
                 mapData.data[i] = m_videoFrame.avFrame()->data[i];

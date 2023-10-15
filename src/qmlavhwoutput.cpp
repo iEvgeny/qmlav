@@ -94,7 +94,7 @@ QVariant QmlAVHWOutput_VAAPI_GLX::handle(const AVFramePtr &avFramePtr)
                                0, 0, avFramePtr->width, avFramePtr->height,
                                nullptr, 0, VA_FRAME_PICTURE | VA_SRC_BT601);
     if (status != VA_STATUS_SUCCESS) {
-        logWarning() << "vaPutSurface() failed: 0x" << Qt::hex << status;
+        logWarning() << "vaPutSurface() failed: 0x" << QmlAV::Hex << status;
         return {};
     }
 

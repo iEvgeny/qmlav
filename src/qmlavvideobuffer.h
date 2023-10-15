@@ -31,7 +31,7 @@ public:
 
 protected:
     void setMapMode(QAbstractVideoBuffer::MapMode mapMode) { m_mapMode = mapMode; }
-    bool planesSize(int size[], const AVFramePtr &avFramePtr) const;
+    bool planeSizes(int size[]) const;
     AVFramePtr swsScale(const QmlAVPixelFormat &dstFormat);
 
 protected:
