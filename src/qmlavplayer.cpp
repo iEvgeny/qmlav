@@ -92,6 +92,11 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                     QVideoSurfaceFormat sf(qvf.size(), qvf.pixelFormat(), qvf.handleType());
                     sf.setPixelAspectRatio(vf->sampleAspectRatio());
                     sf.setYCbCrColorSpace(vf->colorSpace());
+                    logDebug() << "Starting with: "
+                              << "QVideoSurfaceFormat(" << sf.pixelFormat() << ", " << sf.frameSize()
+                              << ", viewport=" << sf.viewport() << ", pixelAspectRatio=" << sf.pixelAspectRatio()
+                              << ", handleType=" << sf.handleType() <<  ", yCbCrColorSpace=" << sf.yCbCrColorSpace()
+                              << ')';
                     if (!m_videoSurface->start(sf)) {
                         logCritical() << "Error starting the video surface presenting frames.";
                     }

@@ -144,17 +144,19 @@ QmlAVColorSpace::operator QVideoSurfaceFormat::YCbCrColorSpace() const
 {
     switch (m_avColorSpace) {
     case AVCOL_SPC_RGB:
-        // Modified BT.601 with full 8-bit range of [0...255].
-        // The Qt sources contain the corresponding RGB<->YUV conversion matrices.
+        // Modified BT.601 with full 8-bit range of [0...255]
+        // The Qt sources contain the corresponding RGB<->YUV conversion matrices
         return QVideoSurfaceFormat::YCbCr_JPEG;
     case AVCOL_SPC_BT470BG:
     case AVCOL_SPC_SMPTE170M:
     case AVCOL_SPC_SMPTE240M:
-        // NOTE: QVideoSurfaceFormat::YCbCr_BT601 and ::YCbCr_xvYCC601 are the same.
+        // NOTE: QVideoSurfaceFormat::YCbCr_BT601 and ::YCbCr_xvYCC601 are the same
         return QVideoSurfaceFormat::YCbCr_BT601;
-    case AVCOL_SPC_BT709:
-        // BUG: QVideoSurfaceFormat::YCbCr_BT709 and ::YCbCr_xvYCC709 are the same and result in a red screen.
-        return QVideoSurfaceFormat::YCbCr_BT709;
+    // BUG: #65 (Pink or Reddish tint)
+    // It looks like the BT709 family color spaces are not being handled correctly.
+//    case AVCOL_SPC_BT709:
+//        // NOTE: QVideoSurfaceFormat::YCbCr_BT709 and ::YCbCr_xvYCC709 are the same
+//        return QVideoSurfaceFormat::YCbCr_BT709;
     default:
         return QVideoSurfaceFormat::YCbCr_Undefined;
     }

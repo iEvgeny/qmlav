@@ -85,7 +85,7 @@ QmlAVPixelFormat QmlAVVideoFrame::swPixelFormat() const
 // YUV colormodel/YCbCr colorspace
 QmlAVColorSpace QmlAVVideoFrame::colorSpace() const
 {
-    // NOTE: Color space support in Qt5 is in its infancy.
+    // NOTE: Color space support in Qt5 is in its infancy
     if (avFrame()->color_range == AVCOL_RANGE_JPEG) {
         // QVideoSurfaceFormat::YCbCr_xvYCC601 and ::YCbCr_xvYCC709 do NOT implement color space with extended value range.
         // This is the same as ::YCbCr_BT601 and ::YCbCr_BT709 respectively.
