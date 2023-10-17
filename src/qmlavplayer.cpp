@@ -1,20 +1,20 @@
 #include "qmlavplayer.h"
 
 QmlAVPlayer::QmlAVPlayer(QObject *parent)
-    : QObject(parent),
-    m_complete(false),
-    m_demuxer(nullptr),
-    m_videoSurface(nullptr),
-    m_audioOutput(nullptr),
-    m_autoLoad(true),
-    m_autoPlay(false),
-    m_loops(1),
-    m_playbackState(QMediaPlayer::StoppedState),
-    m_status(QMediaPlayer::UnknownMediaStatus),
-    m_muted(false),
-    m_volume(0.0),
-    m_hasVideo(false),
-    m_hasAudio(false)
+    : QObject(parent)
+    , m_complete(false)
+    , m_demuxer(nullptr)
+    , m_videoSurface(nullptr)
+    , m_audioOutput(nullptr)
+    , m_autoLoad(true)
+    , m_autoPlay(false)
+    , m_loops(1)
+    , m_playbackState(QMediaPlayer::StoppedState)
+    , m_status(QMediaPlayer::UnknownMediaStatus)
+    , m_muted(false)
+    , m_volume(0.0)
+    , m_hasVideo(false)
+    , m_hasAudio(false)
 {
     qRegisterMetaType<QList<QVideoFrame::PixelFormat>>();
 
@@ -42,6 +42,8 @@ void QmlAVPlayer::componentComplete()
 
 void QmlAVPlayer::play()
 {
+    logDebug() << "play()";
+
     if (load()) {
         m_demuxer->start();
     }
@@ -49,6 +51,8 @@ void QmlAVPlayer::play()
 
 void QmlAVPlayer::stop()
 {
+    logDebug() << "stop()";
+
     if (m_demuxer) {
         disconnect(m_demuxer, nullptr, this, nullptr);
         delete m_demuxer;
@@ -174,6 +178,8 @@ void QmlAVPlayer::setSource(QUrl source)
         return;
     }
 
+    logDebug() << QString("setSource(source=%1)").arg(source.toDisplayString());
+
     m_source = source;
 
     reset();
@@ -218,8 +224,6 @@ void QmlAVPlayer::setVolume(const QVariant &volume)
     if (qFuzzyCompare(m_volume, volume.toDouble())) {
         return;
     }
-
-    logDebug() << QString("setVolume(volume=%1)").arg(volume.toDouble());
 
     m_volume = volume.toDouble();
 
