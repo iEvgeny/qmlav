@@ -2,18 +2,19 @@
 
 QmlAVPlayer::QmlAVPlayer(QObject *parent)
     : QObject(parent),
-      m_complete(false),
-      m_demuxer(nullptr),
-      m_videoSurface(nullptr),
-      m_audioOutput(nullptr),
-      m_autoLoad(true),
-      m_autoPlay(false),
-      m_loops(1),
-      m_playbackState(QMediaPlayer::StoppedState),
-      m_status(QMediaPlayer::UnknownMediaStatus),
-      m_muted(false),
-      m_hasVideo(false),
-      m_hasAudio(false)
+    m_complete(false),
+    m_demuxer(nullptr),
+    m_videoSurface(nullptr),
+    m_audioOutput(nullptr),
+    m_autoLoad(true),
+    m_autoPlay(false),
+    m_loops(1),
+    m_playbackState(QMediaPlayer::StoppedState),
+    m_status(QMediaPlayer::UnknownMediaStatus),
+    m_muted(false),
+    m_volume(0.0),
+    m_hasVideo(false),
+    m_hasAudio(false)
 {
     qRegisterMetaType<QList<QVideoFrame::PixelFormat>>();
 
@@ -139,8 +140,9 @@ void QmlAVPlayer::setAVOptions(const QVariantMap &avOptions)
 
 void QmlAVPlayer::setAutoLoad(bool autoLoad)
 {
-    if (m_autoLoad == autoLoad)
+    if (m_autoLoad == autoLoad) {
         return;
+}
 
     m_autoLoad = autoLoad;
 
@@ -153,8 +155,9 @@ void QmlAVPlayer::setAutoLoad(bool autoLoad)
 
 void QmlAVPlayer::setAutoPlay(bool autoPlay)
 {
-    if (m_autoPlay == autoPlay)
+    if (m_autoPlay == autoPlay) {
         return;
+}
 
     m_autoPlay = autoPlay;
 
@@ -167,8 +170,9 @@ void QmlAVPlayer::setAutoPlay(bool autoPlay)
 
 void QmlAVPlayer::setSource(QUrl source)
 {
-    if (m_source == source)
+    if (m_source == source) {
         return;
+    }
 
     m_source = source;
 
@@ -182,6 +186,8 @@ void QmlAVPlayer::setPlaybackState(const QMediaPlayer::State state)
     if (m_playbackState == state) {
         return;
     }
+
+    logDebug() << QString("setPlaybackState(state=%1)").arg(state);
 
     m_playbackState = state;
 
@@ -198,6 +204,8 @@ void QmlAVPlayer::setStatus(const QMediaPlayer::MediaStatus status)
         return;
     }
 
+    logDebug() << QString("setStatus(status=%1)").arg(status);
+
     m_status = status;
 
     stateMachine();
@@ -207,13 +215,16 @@ void QmlAVPlayer::setStatus(const QMediaPlayer::MediaStatus status)
 
 void QmlAVPlayer::setVolume(const QVariant &volume)
 {
-    if (m_volume == volume)
+    if (qFuzzyCompare(m_volume, volume.toDouble())) {
         return;
+    }
 
-    m_volume = volume;
+    logDebug() << QString("setVolume(volume=%1)").arg(volume.toDouble());
+
+    m_volume = volume.toDouble();
 
     if (m_audioOutput) {
-        m_audioOutput->setVolume(QAudio::convertVolume(m_volume.toReal(),
+        m_audioOutput->setVolume(QAudio::convertVolume(m_volume,
                                                        QAudio::LogarithmicVolumeScale,
                                                        QAudio::LinearVolumeScale));
     }
@@ -227,9 +238,9 @@ void QmlAVPlayer::setHasVideo(bool hasVideo)
         return;
     }
 
-    m_hasVideo = hasVideo;
+    logDebug() << QString("setHasVideo(hasVideo=%1)").arg(hasVideo);
 
-    logDebug() << QString("setHasVideo(%1)").arg(hasVideo);
+    m_hasVideo = hasVideo;
 
     emit hasVideoChanged(hasVideo);
 }
@@ -240,9 +251,9 @@ void QmlAVPlayer::setHasAudio(bool hasAudio)
         return;
     }
 
-    m_hasAudio = hasAudio;
+    logDebug() << QString("setHasAudio(hasAudio=%1)").arg(hasAudio);logDebug() << QString("setHasAudio(hasAudio=%1)").arg(hasAudio);
 
-    logDebug() << QString("setHasAudio(%1)").arg(m_hasAudio);
+    m_hasAudio = hasAudio;
 
     emit hasAudioChanged(hasAudio);
 }
@@ -275,7 +286,7 @@ void QmlAVPlayer::stateMachine()
         }
         if (!m_audioOutput && m_audioFormat.isValid()) {
             m_audioOutput = new QAudioOutput(m_audioDeviceInfo, m_audioFormat);
-            m_audioOutput->setVolume(QAudio::convertVolume(m_volume.toReal(),
+            m_audioOutput->setVolume(QAudio::convertVolume(m_volume,
                                                            QAudio::LogarithmicVolumeScale,
                                                            QAudio::LinearVolumeScale));
             // NOTE: When use start() with a internal pointer to QIODevice we have a bug https://bugreports.qt.io/browse/QTBUG-60575 "infinite loop"

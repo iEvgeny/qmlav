@@ -116,7 +116,7 @@ private:
     QMediaPlayer::State m_playbackState;
     QMediaPlayer::MediaStatus m_status;
     bool m_muted;
-    QVariant m_volume;
+    qreal m_volume;
     bool m_hasVideo;
     bool m_hasAudio;
 };
