@@ -251,6 +251,8 @@ class QmlAVThreadLiveController
 public:
     QmlAVThreadLiveController() : m_thread(nullptr) { }
     virtual ~QmlAVThreadLiveController() {
+        logDebug() << "~QmlAVThreadLiveController()";
+
         // In multithreaded environment, the value returned by use_count() is approximate
         // (typical implementations use a std::memory_order_relaxed load).
         if (m_thread.use_count() == 1) {
@@ -263,6 +265,8 @@ public:
     }
 
     void requestInterruption(bool wait = false) {
+        logDebug() << QString("requestInterruption(wait=%1)").arg(wait);
+
         if (m_thread) {
             m_thread->requestInterruption();
 

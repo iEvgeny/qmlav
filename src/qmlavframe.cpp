@@ -7,19 +7,20 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 
-QmlAVFrame::QmlAVFrame(const AVFramePtr &avFramePtr, Type type)
-    : m_avFrame(avFramePtr)
+QmlAVFrame::QmlAVFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr, Type type)
+    : m_decoder(decoder)
+    , m_avFrame(avFramePtr)
     , m_type(type)
 {
     assert(m_avFrame);
-    decoder<QmlAVDecoder>()->counters().frameQueueLengthAdd();
+    m_decoder->counters().frameQueueLengthAdd();
 }
 
-QmlAVFrame::QmlAVFrame(const QmlAVFrame &other) : QmlAVFrame(other.m_avFrame, other.m_type) { }
+QmlAVFrame::QmlAVFrame(const QmlAVFrame &other) : QmlAVFrame(other.m_decoder, other.m_avFrame, other.m_type) { }
 
 QmlAVFrame::~QmlAVFrame()
 {
-    decoder<QmlAVDecoder>()->counters().frameQueueLengthSub();
+    m_decoder->counters().frameQueueLengthSub();
 }
 
 QmlAVFrame &QmlAVFrame::operator=(const QmlAVFrame &other)
@@ -27,7 +28,7 @@ QmlAVFrame &QmlAVFrame::operator=(const QmlAVFrame &other)
     if (this != std::addressof(other)) {
         m_avFrame = other.m_avFrame;
         m_type = other.m_type;
-        decoder<QmlAVDecoder>()->counters().frameQueueLengthAdd();
+        m_decoder->counters().frameQueueLengthAdd();
     }
 
     return *this;
@@ -42,17 +43,17 @@ int64_t QmlAVFrame::pts() const
         pts = m_avFrame->best_effort_timestamp;
     }
 
-    return pts * decoder<QmlAVDecoder>()->timeBaseUs();
+    return pts * m_decoder->timeBaseUs();
 }
 
-QmlAVVideoFrame::QmlAVVideoFrame(const AVFramePtr &avFramePtr)
-    : QmlAVFrame(avFramePtr, TypeVideo)
+QmlAVVideoFrame::QmlAVVideoFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr)
+    : QmlAVFrame(decoder, avFramePtr, TypeVideo)
 {
 }
 
 bool QmlAVVideoFrame::isValid() const
 {
-    return avFrame() && (avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3]);
+    return m_decoder && avFrame() && (avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3]);
 }
 
 QSize QmlAVVideoFrame::sampleAspectRatio() const
@@ -60,7 +61,7 @@ QSize QmlAVVideoFrame::sampleAspectRatio() const
     AVRational sar = {1, 1};
 
     if (isValid()) {
-        auto codecpar = decoder<QmlAVVideoDecoder>()->stream()->codecpar;
+        auto codecpar = m_decoder->stream()->codecpar;
 
         if (avFrame()->sample_aspect_ratio.num) {
             sar = avFrame()->sample_aspect_ratio;
@@ -101,7 +102,7 @@ QmlAVVideoFrame::operator QVideoFrame() const
     QmlAVVideoBuffer *buffer;
 
     if (isHWDecoded()) {
-        buffer = new QmlAVVideoBuffer_GPU(*this, decoder<QmlAVVideoDecoder>()->hwOutput());
+        buffer = new QmlAVVideoBuffer_GPU(*this, std::static_pointer_cast<const QmlAVVideoDecoder>(m_decoder)->hwOutput());
     } else {
         buffer = new QmlAVVideoBuffer_CPU(*this);
     }
@@ -109,8 +110,8 @@ QmlAVVideoFrame::operator QVideoFrame() const
     return QVideoFrame(buffer, size(), buffer->pixelFormat());
 }
 
-QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFramePtr)
-    : QmlAVFrame(avFramePtr, TypeAudio)
+QmlAVAudioFrame::QmlAVAudioFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr)
+    : QmlAVFrame(decoder, avFramePtr, TypeAudio)
     , m_data(nullptr)
     , m_dataSize(0)
 {

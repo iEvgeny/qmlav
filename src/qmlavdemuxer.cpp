@@ -11,9 +11,11 @@ QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     , m_realtime(false)
     , m_avFormatCtx(nullptr)
     , m_avInterruptionRequested(false)
+    , m_videoDecoder(std::make_shared<QmlAVVideoDecoder>())
+    , m_audioDecoder(std::make_shared<QmlAVAudioDecoder>())
 {
-    connect(&m_videoDecoder, &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
-    connect(&m_audioDecoder, &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
+    connect(m_videoDecoder.get(), &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
+    connect(m_audioDecoder.get(), &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
 }
 
 QmlAVDemuxer::~QmlAVDemuxer()
@@ -65,13 +67,13 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
     }
 
     m_realtime = isRealtime(url);
-    m_videoDecoder.setAsyncMode(m_realtime);
-    m_audioDecoder.setAsyncMode(m_realtime);
+    m_videoDecoder->setAsyncMode(m_realtime);
+    m_audioDecoder->setAsyncMode(m_realtime);
 
     emit mediaStatusChanged(QMediaPlayer::LoadingMedia);
 
-    AVDictionaryPtr dict = static_cast<AVDictionaryPtr>(avOptions);
     m_loaderThread = QmlAVThread::run([=]() mutable {
+        AVDictionaryPtr dict = static_cast<AVDictionaryPtr>(avOptions);
         ret = avformat_open_input(&m_avFormatCtx,
                                   source.toUtf8(),
                                   avOptions.avInputFormat(),
@@ -156,13 +158,13 @@ void QmlAVDemuxer::start()
             return QmlAVLoopController::Interrupt;
         }
 
-        if (avPacketPtr->stream_index == m_videoDecoder.streamIndex()) {
-            m_videoDecoder.decodeAVPacket(avPacketPtr);
-            clock = m_videoDecoder.clock();
-        } else if (avPacketPtr->stream_index == m_audioDecoder.streamIndex()) {
-            m_audioDecoder.decodeAVPacket(avPacketPtr);
-            if (!m_videoDecoder.isOpen()) {
-                clock = m_audioDecoder.clock();
+        if (avPacketPtr->stream_index == m_videoDecoder->streamIndex()) {
+            m_videoDecoder->decodeAVPacket(avPacketPtr);
+            clock = m_videoDecoder->clock();
+        } else if (avPacketPtr->stream_index == m_audioDecoder->streamIndex()) {
+            m_audioDecoder->decodeAVPacket(avPacketPtr);
+            if (!m_videoDecoder->isOpen()) {
+                clock = m_audioDecoder->clock();
             }
         } else {
             return 1; // Minimal sleep time
@@ -180,7 +182,7 @@ void QmlAVDemuxer::start()
 
 QVariantMap QmlAVDemuxer::stat() const
 {
-    auto &vc = m_videoDecoder.counters();
+    auto &vc = m_videoDecoder->counters();
     QVariantMap data = {
         { "framesDecoded", vc.framesDecoded() },
         { "framesDiscarded", vc.framesDiscarded() },
@@ -207,16 +209,16 @@ void QmlAVDemuxer::initDecoders(const QmlAVOptions &avOptions)
 {
     int bestVideoStream = av_find_best_stream(m_avFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
     if (bestVideoStream >= 0) {
-        if (m_videoDecoder.open(m_avFormatCtx->streams[bestVideoStream], avOptions)) {
-            logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_videoDecoder.name()).arg(bestVideoStream);
+        if (m_videoDecoder->open(m_avFormatCtx->streams[bestVideoStream], avOptions)) {
+            logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_videoDecoder->name()).arg(bestVideoStream);
         }
     }
 
     int bestAudioStream = av_find_best_stream(m_avFormatCtx, AVMEDIA_TYPE_AUDIO, -1, bestVideoStream, nullptr, 0);
     if (bestAudioStream >= 0) {
-        if (m_audioDecoder.open(m_avFormatCtx->streams[bestAudioStream], avOptions)) {
-            logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_audioDecoder.name()).arg(bestAudioStream);
-            emit audioFormatChanged(m_audioDecoder.audioFormat());
+        if (m_audioDecoder->open(m_avFormatCtx->streams[bestAudioStream], avOptions)) {
+            logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_audioDecoder->name()).arg(bestAudioStream);
+            emit audioFormatChanged(m_audioDecoder->audioFormat());
         }
     }
 }

@@ -8,6 +8,7 @@ extern "C" {
 
 QmlAVHWOutput_VAAPI_GLX::QmlAVHWOutput_VAAPI_GLX()
     : m_glxDisplay(nullptr)
+    , m_glTexture(0)
     , m_x11Pixmap(0)
     , m_glXPixmap(0)
 {

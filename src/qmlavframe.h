@@ -7,6 +7,7 @@
 
 #include "qmlavutils.h"
 #include "qmlavformat.h"
+#include "qmlavdecoder.h"
 
 class QmlAVFrame
 {
@@ -18,7 +19,7 @@ public:
         TypeAudio
     };
 
-    QmlAVFrame(const AVFramePtr &avFramePtr, Type type = TypeUnknown);
+    QmlAVFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr, Type type = TypeUnknown);
     QmlAVFrame(const QmlAVFrame &other);
     virtual ~QmlAVFrame();
 
@@ -32,8 +33,7 @@ public:
     int64_t pts() const;
 
 protected:
-    template<typename T>
-    T *decoder() const { return static_cast<T *>(m_avFrame->opaque); }
+    std::shared_ptr<QmlAVDecoder> m_decoder;
 
 private:
     AVFramePtr m_avFrame;
@@ -43,7 +43,7 @@ private:
 class QmlAVVideoFrame final : public QmlAVFrame
 {
 public:
-    QmlAVVideoFrame(const AVFramePtr &avFramePtr);
+    QmlAVVideoFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr);
 
     bool isValid() const override;
 
@@ -60,7 +60,7 @@ public:
 class QmlAVAudioFrame final : public QmlAVFrame
 {
 public:
-    QmlAVAudioFrame(const AVFramePtr &avFramePtr);
+    QmlAVAudioFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr);
     ~QmlAVAudioFrame() override;
 
     bool isValid() const override;

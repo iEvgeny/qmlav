@@ -35,7 +35,7 @@ protected:
     bool isAVInterruptionRequested() const { return m_avInterruptionRequested.load(std::memory_order_relaxed); }
 
     bool isRealtime(QUrl url) const;
-    bool isLoaded() const { return m_videoDecoder.isOpen() || m_audioDecoder.isOpen(); }
+    bool isLoaded() const { return m_videoDecoder->isOpen() || m_audioDecoder->isOpen(); }
     void initDecoders(const QmlAVOptions &avOptions);
     
 private:
@@ -46,8 +46,9 @@ private:
     QmlAVThreadLiveController<void> m_loaderThread;
     QmlAVThreadLiveController<QmlAVLoopController> m_demuxerThread;
 
-    QmlAVVideoDecoder m_videoDecoder;
-    QmlAVAudioDecoder m_audioDecoder;
+    // We need more control over the decoder's lifetime since it can be used in another thread
+    std::shared_ptr<QmlAVVideoDecoder> m_videoDecoder;
+    std::shared_ptr<QmlAVAudioDecoder> m_audioDecoder;
 };
 
 #endif // QMLAVDEMUXER_H
