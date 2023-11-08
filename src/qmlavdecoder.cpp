@@ -179,6 +179,8 @@ void QmlAVDecoder::worker(const AVPacketPtr &avPacketPtr)
             return;
         }
 
+        avFramePtr->opaque = this;
+
         if (auto f = frame(avFramePtr)) {
             // NOTE: Not thread safe! Only makes sense in sync mode.
             if (!m_asyncMode) {
@@ -261,9 +263,9 @@ AVPixelFormat QmlAVVideoDecoder::negotiatePixelFormatCb(AVCodecContext *avCodecC
     return *avCodecPixelFormats;
 }
 
-const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::frame(const AVFramePtr &avFramePtr)
+const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::frame(const AVFramePtr &avFramePtr) const
 {
-    return std::make_shared<QmlAVVideoFrame>(shared_from_this(), avFramePtr);
+    return std::make_shared<QmlAVVideoFrame>(avFramePtr);
 }
 
 QmlAVAudioDecoder::QmlAVAudioDecoder(QObject *parent)
@@ -287,9 +289,9 @@ QAudioFormat QmlAVAudioDecoder::audioFormat() const
     return  format;
 }
 
-const std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::frame(const AVFramePtr &avFramePtr)
+const std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::frame(const AVFramePtr &avFramePtr) const
 {
-    auto af = std::make_shared<QmlAVAudioFrame>(shared_from_this(), avFramePtr);
+    auto af = std::make_shared<QmlAVAudioFrame>(avFramePtr);
     af->setAudioFormat(audioFormat());
     return af;
 }

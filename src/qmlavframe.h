@@ -19,11 +19,9 @@ public:
         TypeAudio
     };
 
-    QmlAVFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr, Type type = TypeUnknown);
+    QmlAVFrame(const AVFramePtr &avFramePtr, Type type = TypeUnknown);
     QmlAVFrame(const QmlAVFrame &other);
     virtual ~QmlAVFrame();
-
-    QmlAVFrame &operator=(const QmlAVFrame &other);
 
     Type type() const { return m_type; }
 
@@ -43,7 +41,7 @@ private:
 class QmlAVVideoFrame final : public QmlAVFrame
 {
 public:
-    QmlAVVideoFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr);
+    QmlAVVideoFrame(const AVFramePtr &avFramePtr);
 
     bool isValid() const override;
 
@@ -60,7 +58,7 @@ public:
 class QmlAVAudioFrame final : public QmlAVFrame
 {
 public:
-    QmlAVAudioFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr);
+    QmlAVAudioFrame(const AVFramePtr &avFramePtr);
     ~QmlAVAudioFrame() override;
 
     bool isValid() const override;

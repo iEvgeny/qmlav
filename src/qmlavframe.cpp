@@ -7,31 +7,21 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 
-QmlAVFrame::QmlAVFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr, Type type)
-    : m_decoder(decoder)
-    , m_avFrame(avFramePtr)
+QmlAVFrame::QmlAVFrame(const AVFramePtr &avFramePtr, Type type)
+    : m_avFrame(avFramePtr)
     , m_type(type)
 {
-    assert(m_avFrame);
+    assert(m_avFrame && m_avFrame->opaque);
+
+    m_decoder = static_cast<QmlAVDecoder *>(m_avFrame->opaque)->shared_from_this();
     m_decoder->counters().frameQueueLengthAdd();
 }
 
-QmlAVFrame::QmlAVFrame(const QmlAVFrame &other) : QmlAVFrame(other.m_decoder, other.m_avFrame, other.m_type) { }
+QmlAVFrame::QmlAVFrame(const QmlAVFrame &other) : QmlAVFrame(other.m_avFrame, other.m_type) { }
 
 QmlAVFrame::~QmlAVFrame()
 {
     m_decoder->counters().frameQueueLengthSub();
-}
-
-QmlAVFrame &QmlAVFrame::operator=(const QmlAVFrame &other)
-{
-    if (this != std::addressof(other)) {
-        m_avFrame = other.m_avFrame;
-        m_type = other.m_type;
-        m_decoder->counters().frameQueueLengthAdd();
-    }
-
-    return *this;
 }
 
 int64_t QmlAVFrame::pts() const
@@ -46,14 +36,14 @@ int64_t QmlAVFrame::pts() const
     return pts * m_decoder->timeBaseUs();
 }
 
-QmlAVVideoFrame::QmlAVVideoFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr)
-    : QmlAVFrame(decoder, avFramePtr, TypeVideo)
+QmlAVVideoFrame::QmlAVVideoFrame(const AVFramePtr &avFramePtr)
+    : QmlAVFrame(avFramePtr, TypeVideo)
 {
 }
 
 bool QmlAVVideoFrame::isValid() const
 {
-    return m_decoder && avFrame() && (avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3]);
+    return avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3];
 }
 
 QSize QmlAVVideoFrame::sampleAspectRatio() const
@@ -110,8 +100,8 @@ QmlAVVideoFrame::operator QVideoFrame() const
     return QVideoFrame(buffer, size(), buffer->pixelFormat());
 }
 
-QmlAVAudioFrame::QmlAVAudioFrame(const std::shared_ptr<QmlAVDecoder> &decoder, const AVFramePtr &avFramePtr)
-    : QmlAVFrame(decoder, avFramePtr, TypeAudio)
+QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFramePtr)
+    : QmlAVFrame(avFramePtr, TypeAudio)
     , m_data(nullptr)
     , m_dataSize(0)
 {
