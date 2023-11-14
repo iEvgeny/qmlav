@@ -55,9 +55,11 @@ public:
     LIBAVFORMAT_CONST AVInputFormat *avInputFormat() const;
     AVHWDeviceType avHWDeviceType() const;
     std::shared_ptr<QmlAVHWOutput> hwOutput() const;
+    const AVCodec *avCodec(const AVStream *avStream) const;
 
 protected:
-    template<typename Predicate> int find(std::string arg, Predicate p) const;
+    template<typename Predicate> int find(std::string opt, Predicate p) const;
+    template<typename Predicate> int find(std::vector<std::string> opts, Predicate p) const;
 
 private:
     std::vector<std::pair<std::string, std::string>> m_avOptions;

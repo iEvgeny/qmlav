@@ -75,13 +75,56 @@ std::shared_ptr<QmlAVHWOutput> QmlAVOptions::hwOutput() const
     return hwOutput;
 }
 
+const AVCodec *QmlAVOptions::avCodec(const AVStream *avStream) const
+{
+    std::vector<std::string> opts;
+
+    if (!avStream) {
+        return nullptr;
+    }
+
+    switch (avStream->codecpar->codec_type) {
+    case AVMEDIA_TYPE_VIDEO:
+        opts = {"vcodec", "codec:v", "c:v"};
+        break;
+    case AVMEDIA_TYPE_AUDIO:
+        opts = {"acodec", "codec:a", "c:a"};
+        break;
+    default:
+        return nullptr;
+    }
+
+    AVCodec *codec = nullptr;
+    bool forced = find(opts, [&](std::string value) {
+        codec = avcodec_find_decoder_by_name(value.c_str());
+        if (!codec) {
+            logWarning() << "Could not find codec with name: " << QmlAV::Quote << value;
+        }
+    });
+
+    if (!forced) {
+        codec = avcodec_find_decoder(avStream->codecpar->codec_id);
+        if (!codec) {
+            logWarning() << "Unable find decoder";
+        }
+    }
+
+    return codec;
+}
+
 template<typename Predicate>
-int QmlAVOptions::find(std::string key, Predicate p) const
+int QmlAVOptions::find(std::string opt, Predicate p) const
+{
+    return find(std::initializer_list<std::string>{opt}, p);
+}
+
+template<typename Predicate>
+int QmlAVOptions::find(std::vector<std::string> opts, Predicate p) const
 {
     int count = 0;
 
     for (const auto &i : m_avOptions) {
-        if (i.first == key) {
+        if (std::find(opts.begin(), opts.end(), i.first) != opts.end()) {
             ++count;
 
             using Result = std::invoke_result_t<std::decay_t<Predicate>, std::string>;

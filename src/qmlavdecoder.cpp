@@ -47,45 +47,44 @@ bool QmlAVDecoder::open(const AVStream *avStream, const QmlAVOptions &avOptions)
 {
     int ret;
 
-    if (m_avStream || !avStream) {
+    if (m_avStream) {
         return false;
     }
 
-    const AVCodec *avDecoder = avcodec_find_decoder(avStream->codecpar->codec_id);
-    if (!avDecoder) {
-        logWarning() << "Unable find decoder";
-        return false;
+    const AVCodec *codec = avOptions.avCodec(avStream);
+    if (codec) {
+        auto codecCtx = avcodec_alloc_context3(codec);
+        if (!codecCtx) {
+            logWarning() << "Unable allocate codec context";
+            return false;
+        }
+
+        ret = avcodec_parameters_to_context(codecCtx, avStream->codecpar);
+        if (ret < 0) {
+            logWarning() << QString("Unable fill codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
+            return false;
+        }
+
+        if (!initHWAccel(codecCtx, avOptions)) {
+            return false;
+        }
+
+        AVDictionaryPtr opts = static_cast<AVDictionaryPtr>(avOptions);
+        ret = avcodec_open2(codecCtx, codec, opts);
+        if (ret  < 0) {
+            logWarning() << QString("Unable initialize codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
+            return false;
+        }
+
+        logDebug() << "avcodec_open2() options ignored: " << QmlAV::Quote << opts.getString();
+
+        m_avStream = avStream;
+        m_avCodecCtx = codecCtx;
+
+        return true;
     }
 
-    auto avCodecCtx = avcodec_alloc_context3(avDecoder);
-    if (!avCodecCtx) {
-        logWarning() << "Unable allocate codec context";
-        return false;
-    }
-
-    ret = avcodec_parameters_to_context(avCodecCtx, avStream->codecpar);
-    if (ret < 0) {
-        logWarning() << QString("Unable fill codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
-        return false;
-    }
-
-    if (!initHWAccel(avCodecCtx, avOptions)) {
-        return false;
-    }
-
-    AVDictionaryPtr opts = static_cast<AVDictionaryPtr>(avOptions);
-    ret = avcodec_open2(avCodecCtx, avDecoder, opts);
-    if (ret  < 0) {
-        logWarning() << QString("Unable initialize codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
-        return false;
-    }
-
-    logDebug() << "avcodec_open2() options ignored: " << QmlAV::Quote << opts.getString();
-
-    m_avStream = avStream;
-    m_avCodecCtx = avCodecCtx;
-
-    return true;
+    return false;
 }
 
 bool QmlAVDecoder::isOpen() const
