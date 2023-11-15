@@ -94,7 +94,7 @@ const AVCodec *QmlAVOptions::avCodec(const AVStream *avStream) const
         return nullptr;
     }
 
-    AVCodec *codec = nullptr;
+    const AVCodec *codec = nullptr;
     bool forced = find(opts, [&](std::string value) {
         codec = avcodec_find_decoder_by_name(value.c_str());
         if (!codec) {
