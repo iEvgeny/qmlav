@@ -24,9 +24,7 @@ QmlAVDecoder::~QmlAVDecoder()
 {
     m_thread.requestInterruption(true);
 
-    if (m_avCodecCtx) {
-        avcodec_free_context(&m_avCodecCtx);
-    }
+    avcodec_free_context(&m_avCodecCtx);
 }
 
 // NOTE: Not thread safe!
@@ -47,30 +45,30 @@ bool QmlAVDecoder::open(const AVStream *avStream, const QmlAVOptions &avOptions)
 {
     int ret;
 
-    if (m_avStream) {
+    if (m_avCodecCtx) {
         return false;
     }
 
     const AVCodec *codec = avOptions.avCodec(avStream);
     if (codec) {
-        auto codecCtx = avcodec_alloc_context3(codec);
-        if (!codecCtx) {
+        m_avCodecCtx = avcodec_alloc_context3(codec);
+        if (!m_avCodecCtx) {
             logWarning() << "Unable allocate codec context";
             return false;
         }
 
-        ret = avcodec_parameters_to_context(codecCtx, avStream->codecpar);
+        ret = avcodec_parameters_to_context(m_avCodecCtx, avStream->codecpar);
         if (ret < 0) {
             logWarning() << QString("Unable fill codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
             return false;
         }
 
-        if (!initHWAccel(codecCtx, avOptions)) {
+        if (!initHWAccel(m_avCodecCtx, avOptions)) {
             return false;
         }
 
         AVDictionaryPtr opts = static_cast<AVDictionaryPtr>(avOptions);
-        ret = avcodec_open2(codecCtx, codec, opts);
+        ret = avcodec_open2(m_avCodecCtx, codec, opts);
         if (ret  < 0) {
             logWarning() << QString("Unable initialize codec context: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
             return false;
@@ -79,7 +77,6 @@ bool QmlAVDecoder::open(const AVStream *avStream, const QmlAVOptions &avOptions)
         logDebug() << "avcodec_open2() options ignored: " << QmlAV::Quote << opts.getString();
 
         m_avStream = avStream;
-        m_avCodecCtx = codecCtx;
 
         return true;
     }
