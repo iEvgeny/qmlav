@@ -61,20 +61,21 @@ protected:
     void setSkipFrameFlag();
     void worker(const AVPacketPtr &avPacketPtr);
 
-    AVCodecContext *avCodecCtx() const { return m_avCodecCtx; }
-    virtual bool initHWAccel(AVCodecContext *avCodecCtx, const QmlAVOptions &avOptions) { return true; }
+    virtual bool initVideoDecoder(const QmlAVOptions &avOptions) { return true; }
     virtual const std::shared_ptr<QmlAVFrame> frame(const AVFramePtr &avFramePtr) const {
         // NOTE: Cannot be pure virtual!
         // A stub method called on an early (static) binding when the destructor is executed.
         return {};
     };
 
+protected:
+    AVCodecContext *m_avCodecCtx;
+
 private:
     bool m_asyncMode;
     int64_t m_clock;
 
     const AVStream *m_avStream;
-    AVCodecContext *m_avCodecCtx;
 
     QmlAVThreadTask<decltype(&QmlAVDecoder::worker)> m_threadTask;
     QmlAVThreadLiveController<void> m_thread;
@@ -94,7 +95,7 @@ public:
     std::shared_ptr<QmlAVHWOutput> hwOutput() const { return m_hwOutput; }
 
 protected:
-    bool initHWAccel(AVCodecContext *avCodecCtx, const QmlAVOptions &avOptions) override;
+    bool initVideoDecoder(const QmlAVOptions &avOptions) override;
     static AVPixelFormat negotiatePixelFormatCb(struct AVCodecContext *avCodecCtx, const AVPixelFormat *avCodecPixelFormats);
     const std::shared_ptr<QmlAVFrame> frame(const AVFramePtr &avFramePtr) const override;
 

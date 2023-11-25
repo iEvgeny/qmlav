@@ -11,10 +11,10 @@ extern "C" {
 
 QmlAVDecoder::QmlAVDecoder(QObject *parent)
     : QObject(parent)
+    , m_avCodecCtx(nullptr)
     , m_asyncMode(false)
     , m_clock(0)
     , m_avStream(nullptr)
-    , m_avCodecCtx(nullptr)
     , m_threadTask(&QmlAVDecoder::worker)
 {
     qRegisterMetaType<std::shared_ptr<QmlAVFrame>>();
@@ -63,7 +63,7 @@ bool QmlAVDecoder::open(const AVStream *avStream, const QmlAVOptions &avOptions)
             return false;
         }
 
-        if (!initHWAccel(m_avCodecCtx, avOptions)) {
+        if (!initVideoDecoder(avOptions)) {
             return false;
         }
 
@@ -98,7 +98,7 @@ QString QmlAVDecoder::name() const
     QString name;
 
     if (isOpen()) {
-        name = avCodecCtx()->codec->name;
+        name = m_avCodecCtx->codec->name;
     }
 
     return name;
@@ -198,20 +198,25 @@ QmlAVVideoDecoder::QmlAVVideoDecoder(QObject *parent)
 
 QmlAVVideoDecoder::~QmlAVVideoDecoder()
 {
-    if (avCodecCtx()) {
-        av_buffer_unref(&avCodecCtx()->hw_device_ctx);
+    if (m_avCodecCtx) {
+        av_buffer_unref(&m_avCodecCtx->hw_device_ctx);
     }
 }
 
-bool QmlAVVideoDecoder::initHWAccel(AVCodecContext *avCodecCtx, const QmlAVOptions &avOptions)
+bool QmlAVVideoDecoder::initVideoDecoder(const QmlAVOptions &avOptions)
 {
-    AVBufferRef *avHWDeviceCtx = nullptr;
+    if (!m_avCodecCtx) {
+        return false;
+    }
+
+    m_avCodecCtx->get_format = negotiatePixelFormatCb;
+
     AVHWDeviceType avHWDeviceType = avOptions.avHWDeviceType();
     if (avHWDeviceType != AV_HWDEVICE_TYPE_NONE) {
         AVDictionaryPtr opts;
+        AVBufferRef *avHWDeviceCtx = nullptr;
 
         m_hwOutput = avOptions.hwOutput();
-
         if (m_hwOutput && m_hwOutput->type() == QmlAVHWOutput::TypeVAAPI_GLX) {
             // NOTE: The X11 windowing subsystem can also be initialized in the "QmlAVHWOutput_VAAPI_GLX" module manually
             opts.set("connection_type", "x11");
@@ -223,9 +228,8 @@ bool QmlAVVideoDecoder::initHWAccel(AVCodecContext *avCodecCtx, const QmlAVOptio
             return false;
         }
 
-        avCodecCtx->get_format = negotiatePixelFormatCb;
         // NOTE: This field should be set before avcodec_open2() is called and must not be written to thereafter.
-        avCodecCtx->hw_device_ctx = av_buffer_ref(avHWDeviceCtx);
+        m_avCodecCtx->hw_device_ctx = av_buffer_ref(avHWDeviceCtx);
 
         av_buffer_unref(&avHWDeviceCtx);
     }
@@ -233,9 +237,8 @@ bool QmlAVVideoDecoder::initHWAccel(AVCodecContext *avCodecCtx, const QmlAVOptio
     return true;
 }
 
-// The point of this procedure is to match the pixel format between the codec and the hardware decoder.
-// NOTE: This callback is implemented and used only for hardware decoding. We rely on automatic selection
-// of optimal pixel format during software decoding.
+// NOTE: The default FFmpeg implementation for this callback can be seen as equal or even superior.
+// See libavcodec/decode.c: avcodec_default_get_format()
 AVPixelFormat QmlAVVideoDecoder::negotiatePixelFormatCb(AVCodecContext *avCodecCtx, const AVPixelFormat *avCodecPixelFormats)
 {
     if (avCodecCtx->hw_device_ctx) {
@@ -254,8 +257,14 @@ AVPixelFormat QmlAVVideoDecoder::negotiatePixelFormatCb(AVCodecContext *avCodecC
         }
     }
 
-    // NOTE: It is assumed that this point will never be reached,
-    // otherwise the caller will change "avCodecPixelFormats[]" until it is satisfied.
+    // Choose the first suitable entry if the HW format matching failed or the HW device context was not provided
+    for (int i = 0; avCodecPixelFormats[i] != AV_PIX_FMT_NONE; ++i) {
+        if (QmlAVPixelFormat(avCodecPixelFormats[i]).isQtNative()) {
+            return avCodecPixelFormats[i];
+        }
+    }
+
+    // NOTE: If we do reach this point, the codec will modify "avCodecPixelFormats[]" until it is satisfied
     return *avCodecPixelFormats;
 }
 
@@ -274,12 +283,12 @@ QAudioFormat QmlAVAudioDecoder::audioFormat() const
     QAudioFormat format;
 
     if (isOpen()) {
-        format.setSampleRate(avCodecCtx()->sample_rate);
-        format.setChannelCount(avCodecCtx()->channels);
+        format.setSampleRate(m_avCodecCtx->sample_rate);
+        format.setChannelCount(m_avCodecCtx->channels);
         format.setCodec("audio/pcm");
         format.setByteOrder(AV_NE(QAudioFormat::BigEndian, QAudioFormat::LittleEndian));
-        format.setSampleType(QmlAVSampleFormat::audioFormatFromAVFormat(avCodecCtx()->sample_fmt));
-        format.setSampleSize(av_get_bytes_per_sample(avCodecCtx()->sample_fmt) * 8);
+        format.setSampleType(QmlAVSampleFormat::audioFormatFromAVFormat(m_avCodecCtx->sample_fmt));
+        format.setSampleSize(av_get_bytes_per_sample(m_avCodecCtx->sample_fmt) * 8);
     }
 
     return  format;
