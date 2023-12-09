@@ -5,7 +5,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <queue>
-#include <cassert>
 
 template <typename T>
 class QmlAVQueue
