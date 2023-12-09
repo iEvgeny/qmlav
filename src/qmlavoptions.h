@@ -48,6 +48,7 @@ public:
         MultiKey
     };
 
+    QmlAVOptions() { }
     QmlAVOptions(const QVariantMap &avOptions);
 
     operator AVDictionaryPtr() const;
@@ -56,10 +57,12 @@ public:
     AVHWDeviceType avHWDeviceType() const;
     std::shared_ptr<QmlAVHWOutput> hwOutput() const;
     const AVCodec *avCodec(const AVStream *avStream) const;
+    uint32_t demuxerTimeout() const;
 
 protected:
-    template<typename Predicate> int find(std::string opt, Predicate p) const;
-    template<typename Predicate> int find(std::vector<std::string> opts, Predicate p) const;
+    template<typename T> T sTo(std::string value) const { return value; }
+    template<typename Callback> int find(std::string opt, Callback cb) const;
+    template<typename Callback> int find(std::vector<std::string> opts, Callback cb) const;
 
 private:
     std::vector<std::pair<std::string, std::string>> m_avOptions;

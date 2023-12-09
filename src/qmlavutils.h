@@ -144,6 +144,63 @@ inline QDebug operator<<(QDebug dbg, const std::string& str)
 class QmlAVUtils
 {
 public:
+    template<typename T>
+    using EnableForNonVoid = std::enable_if_t<!std::is_same_v<T, void>>;
+
+    template<typename ...Types>
+    using DecayedTuple = std::tuple<std::decay_t<Types>...>;
+
+    template<typename Callable>
+    struct FunctorTraits;
+
+    template<typename Callable>
+    struct FunctionTraits
+        // Lambda/Functors support
+        // NOTE: operator () overloading is not supported. See std::invoke/std::apply implementation
+        : public FunctorTraits<decltype(&std::remove_reference_t<Callable>::operator())> { };
+
+    template<typename Ret, typename ...Args>
+    struct FunctionTraits<Ret (Args...)> {
+        using ArgsTuple = DecayedTuple<Args...>;
+        using Result = Ret;
+
+        // NOTE: std::tuple is decayed into arguments as a sequence of lvalue or rvalue references,
+        // depending on how it was passed to std::apply (See std::get and std::apply implementation).
+        template<typename Callable>
+        constexpr static auto invoke(Callable callable, std::decay_t<Args> &...args) {
+            // NOTE: Here we do not use the idiom of perfect forwarding.
+            // It is a casting of argument types according to the signature of the called object.
+            return std::invoke(callable, std::forward<Args>(args)...);
+        };
+    };
+
+    template<typename Ret, typename ...Args>
+    struct FunctionTraits<Ret (*)(Args...)>
+        : public FunctionTraits<Ret (Args...)> { };
+
+    template<typename Ret, typename Type, typename ...Args>
+    struct FunctionTraits<Ret (Type::*)(Args...)>
+        : public FunctionTraits<Ret (Type*, Args...)> { };
+
+    template<typename Ret, typename Type, typename ...Args>
+    struct FunctionTraits<Ret (Type::*)(Args...) const>
+        : public FunctionTraits<Ret (Type*, Args...)> { };
+
+    template<typename Ret, typename Type, typename ...Args>
+    struct FunctorTraits<Ret (Type::*)(Args...)>
+        : public FunctionTraits<Ret (Args...)> { };
+
+    template<typename Ret, typename Type, typename ...Args>
+    struct FunctorTraits<Ret (Type::*)(Args...) const>
+        : public FunctionTraits<Ret (Args...)> { };
+
+    template<typename Callable>
+    using InvokeArgsTuple = typename FunctionTraits<std::remove_reference_t<Callable>>::ArgsTuple;
+
+    template<typename Callable>
+    using InvokeResult = typename FunctionTraits<std::remove_reference_t<Callable>>::Result;
+
+    // Logging tools
     static QLoggingCategory &loggingCategory() { return m_loggingCategory; }
     template<typename T>
     static QString rttiTypeName(const T &type) {

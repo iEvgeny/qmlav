@@ -1,7 +1,6 @@
 #include "qmlavdemuxer.h"
 
 extern "C" {
-#include <libavutil/time.h>
 #include <libavcodec/avcodec.h>
 #include <libavdevice/avdevice.h>
 }
@@ -10,7 +9,6 @@ QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     : QObject(parent)
     , m_realtime(false)
     , m_avFormatCtx(nullptr)
-    , m_avInterruptionRequested(false)
     , m_videoDecoder(std::make_shared<QmlAVVideoDecoder>())
     , m_audioDecoder(std::make_shared<QmlAVAudioDecoder>())
 {
@@ -20,7 +18,7 @@ QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
 
 QmlAVDemuxer::~QmlAVDemuxer()
 {
-    requestAVInterruption();
+    m_interruptCallback.requestAVInterrupt();
 
     m_loaderThread.requestInterruption(true);
     m_demuxerThread.requestInterruption(true);
@@ -35,6 +33,12 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
 
     if (m_avFormatCtx) {
         return;
+    }
+
+    // TODO: Only Unix systems are supported
+    if (url.isLocalFile()) {
+        avdevice_register_all();
+        source = url.toLocalFile();
     }
 
     if (source.isEmpty()) {
@@ -54,21 +58,12 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
         return;
     }
 
-    m_avFormatCtx->interrupt_callback.opaque = this;
-    m_avFormatCtx->interrupt_callback.callback = [](void *obj) -> int {
-        auto d = static_cast<QmlAVDemuxer *>(obj);
-        return d ? d->isAVInterruptionRequested() : 0;
-    };
-
-    // TODO: Only Unix systems are supported
-    if (url.isLocalFile()) {
-        avdevice_register_all();
-        source = url.toLocalFile();
-    }
-
     m_realtime = isRealtime(url);
     m_videoDecoder->setAsyncMode(m_realtime);
     m_audioDecoder->setAsyncMode(m_realtime);
+
+    m_interruptCallback.setTimeout(avOptions.demuxerTimeout());
+    m_avFormatCtx->interrupt_callback = m_interruptCallback;
 
     emit mediaStatusChanged(QMediaPlayer::LoadingMedia);
 
@@ -140,6 +135,8 @@ void QmlAVDemuxer::start()
 
         // TODO:
         int64_t clock = 0;
+
+        m_interruptCallback.resetTimer();
 
         ret = av_read_frame(m_avFormatCtx, avPacketPtr);
         if (ret < 0) {

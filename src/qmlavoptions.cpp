@@ -112,29 +112,53 @@ const AVCodec *QmlAVOptions::avCodec(const AVStream *avStream) const
     return codec;
 }
 
-template<typename Predicate>
-int QmlAVOptions::find(std::string opt, Predicate p) const
+uint32_t QmlAVOptions::demuxerTimeout() const
 {
-    return find(std::initializer_list<std::string>{opt}, p);
+    uint32_t t = 30000000; // 30 sec. by default
+
+    find("demuxer_timeout", [&](uint32_t value) {
+        t = value;
+    });
+
+    return t;
 }
 
-template<typename Predicate>
-int QmlAVOptions::find(std::vector<std::string> opts, Predicate p) const
+template<>
+uint32_t QmlAVOptions::sTo<uint32_t>(std::string value) const
+{
+    return std::stoul(value);
+}
+
+template<typename Callback>
+int QmlAVOptions::find(std::string opt, Callback cb) const
+{
+    return find(std::initializer_list<std::string>{opt}, cb);
+}
+
+template<typename Callback>
+int QmlAVOptions::find(std::vector<std::string> opts, Callback cb) const
 {
     int count = 0;
+
+    using Result = QmlAVUtils::InvokeResult<Callback>;
+    using ValueType = std::tuple_element_t<0, QmlAVUtils::InvokeArgsTuple<Callback>>;
 
     for (const auto &i : m_avOptions) {
         if (std::find(opts.begin(), opts.end(), i.first) != opts.end()) {
             ++count;
 
-            using Result = std::invoke_result_t<std::decay_t<Predicate>, std::string>;
+            try {
+                auto value = sTo<ValueType>(i.second);
 
-            if constexpr (std::is_same_v<Result, QmlAVOptions::FindControl>) {
-                if (p(i.second) == QmlAVOptions::MultiKey) {
-                    continue;
+                if constexpr (std::is_same_v<Result, QmlAVOptions::FindControl>) {
+                    if (cb(value) == QmlAVOptions::MultiKey) {
+                        continue;
+                    }
+                } else {
+                    cb(value);
                 }
-            } else {
-                p(i.second);
+            } catch (...) {
+                logWarning() << "Invalid value for -" << i.first << " option";
             }
 
             break;

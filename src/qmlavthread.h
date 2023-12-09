@@ -43,63 +43,7 @@ public:
     virtual void requestInterruption() { }
 };
 
-template<typename T>
-using EnableForNonVoid = std::enable_if_t<!std::is_same_v<T, void>>;
-
-template<typename ...Types>
-using DecayedTuple = std::tuple<std::decay_t<Types>...>;
-
-template<typename Callable>
-struct FunctorTraits;
-
-template<typename Callable>
-struct FunctionTraits
-    // Lambda/Functors support
-    // NOTE: operator () overloading is not supported. See std::invoke/std::apply implementation
-    : public FunctorTraits<decltype(&std::remove_reference_t<Callable>::operator())> { };
-
-template<typename Ret, typename ...Args>
-struct FunctionTraits<Ret (Args...)> {
-    using ArgsTuple = DecayedTuple<Args...>;
-    using Result = Ret;
-
-    // NOTE: std::tuple is decayed into arguments as a sequence of lvalue or rvalue references,
-    // depending on how it was passed to std::apply (See std::get and std::apply implementation).
-    template<typename Callable>
-    constexpr static auto invoke(Callable callable, std::decay_t<Args> &...args) {
-        // NOTE: Here we do not use the idiom of perfect forwarding.
-        // It is a casting of argument types according to the signature of the called object.
-        return std::invoke(callable, std::forward<Args>(args)...);
-    };
-};
-
-template<typename Ret, typename ...Args>
-struct FunctionTraits<Ret (*)(Args...)>
-    : public FunctionTraits<Ret (Args...)> { };
-
-template<typename Ret, typename Type, typename ...Args>
-struct FunctionTraits<Ret (Type::*)(Args...)>
-    : public FunctionTraits<Ret (Type*, Args...)> { };
-
-template<typename Ret, typename Type, typename ...Args>
-struct FunctionTraits<Ret (Type::*)(Args...) const>
-    : public FunctionTraits<Ret (Type*, Args...)> { };
-
-template<typename Ret, typename Type, typename ...Args>
-struct FunctorTraits<Ret (Type::*)(Args...)>
-    : public FunctionTraits<Ret (Args...)> { };
-
-template<typename Ret, typename Type, typename ...Args>
-struct FunctorTraits<Ret (Type::*)(Args...) const>
-    : public FunctionTraits<Ret (Args...)> { };
-
-template<typename Callable>
-using InvokeArgsTuple = typename FunctionTraits<std::remove_reference_t<Callable>>::ArgsTuple;
-
-template<typename Callable>
-using InvokeResult = typename FunctionTraits<std::remove_reference_t<Callable>>::Result;
-
-template<typename Callable, typename Result = InvokeResult<Callable>>
+template<typename Callable, typename Result = QmlAVUtils::InvokeResult<Callable>>
 class QmlAVWorkerResultImpl : public QmlAVAbstractWorker
 {
 public:
@@ -136,8 +80,8 @@ template<typename Callable>
 class QmlAVWorkerInvokeImpl : public QmlAVWorkerResultImpl<Callable>
 {
 protected:
-    using ArgsTuple = InvokeArgsTuple<Callable>;
-    using Result = InvokeResult<Callable>;
+    using ArgsTuple = QmlAVUtils::InvokeArgsTuple<Callable>;
+    using Result = QmlAVUtils::InvokeResult<Callable>;
 
 public:
     QmlAVWorkerInvokeImpl(Callable &&callable)
@@ -149,14 +93,14 @@ protected:
         if constexpr (std::is_same_v<Result, QmlAVLoopController>) {
             static_assert(std::tuple_size_v<ArgsTuple> == 0,
                           "Any arguments are not allowed for loops. Use the capture list for lambda functions.");
-            return std::apply(&FunctionTraits<Callable>::template invoke<Callable>, std::forward_as_tuple(m_callable));
+            return std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, std::forward_as_tuple(m_callable));
         } else {
             auto data = std::tuple_cat(std::forward_as_tuple(m_callable), std::forward<URef>(args));
 
             if constexpr (std::is_void_v<Result>) {
-                std::apply(&FunctionTraits<Callable>::template invoke<Callable>, data);
+                std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, data);
             } else {
-                auto result = std::apply(&FunctionTraits<Callable>::template invoke<Callable>, data);
+                auto result = std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, data);
                 this->setResult(std::move(result));
             }
         }
@@ -288,7 +232,7 @@ public:
         }
     }
 
-    template<typename T = Result, typename = EnableForNonVoid<T>>
+    template<typename T = Result, typename = QmlAVUtils::EnableForNonVoid<T>>
     Result result() const {
         Result data = {};
 
@@ -302,7 +246,7 @@ public:
         return data;
     }
 
-    template<typename T = Result, typename = EnableForNonVoid<T>>
+    template<typename T = Result, typename = QmlAVUtils::EnableForNonVoid<T>>
     auto results() const {
         std::list<Result> list;
 
@@ -341,7 +285,7 @@ private:
 template<typename Callable>
 class QmlAVThreadTask
 {
-    using ArgsQueue = QmlAVQueue<InvokeArgsTuple<Callable>>;
+    using ArgsQueue = QmlAVQueue<QmlAVUtils::InvokeArgsTuple<Callable>>;
 
 public:
     QmlAVThreadTask(Callable &&callable)
@@ -359,7 +303,7 @@ public:
         auto worker = std::make_unique<QmlAVWorker<Callable, std::shared_ptr<ArgsQueue>>>(m_callable, m_argsQueue);
         auto thread = std::make_shared<QmlAVWorkerThread>(std::move(worker));
 
-        using Result = InvokeResult<Callable>;
+        using Result = QmlAVUtils::InvokeResult<Callable>;
         return QmlAVThreadLiveController<Result>(thread);
     }
 
@@ -378,7 +322,7 @@ public:
         auto worker = std::make_unique<QmlAVWorker<Callable, Args...>>(std::forward<Callable>(callable), std::forward<Args>(args)...);
         auto thread = std::make_shared<QmlAVWorkerThread>(std::move(worker));
 
-        using Result = InvokeResult<Callable>;
+        using Result = QmlAVUtils::InvokeResult<Callable>;
         return QmlAVThreadLiveController<Result>(thread);
     }
     template<typename Callable>
