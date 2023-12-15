@@ -172,7 +172,7 @@ void QmlAVDecoder::worker(const AVPacketPtr &avPacketPtr)
                 logWarning() << QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
             }
 
-            return;
+            break;
         }
 
         avFramePtr->opaque = this;
