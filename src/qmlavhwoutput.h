@@ -27,7 +27,7 @@ public:
     virtual Type type() const = 0;
     virtual QmlAVPixelFormat pixelFormat() const = 0;
     virtual QAbstractVideoBuffer::HandleType handleType() const = 0;
-    virtual QVariant handle(const AVFramePtr &avFramePtr) = 0;
+    virtual QVariant handle(const AVFramePtr &avFrame) = 0;
 };
 
 class QmlAVHWOutput_VAAPI_GLX final : public QmlAVHWOutput
@@ -39,7 +39,7 @@ public:
     Type type() const override { return TypeVAAPI_GLX; }
     QmlAVPixelFormat pixelFormat() const override { return AV_PIX_FMT_BGR32; }
     QAbstractVideoBuffer::HandleType handleType() const override { return QAbstractVideoBuffer::GLTextureHandle; }
-    QVariant handle(const AVFramePtr &avFramePtr) override;
+    QVariant handle(const AVFramePtr &avFrame) override;
 
 private:
     Display *m_glxDisplay;

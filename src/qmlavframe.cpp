@@ -7,8 +7,8 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 
-QmlAVFrame::QmlAVFrame(const AVFramePtr &avFramePtr, Type type)
-    : m_avFrame(avFramePtr)
+QmlAVFrame::QmlAVFrame(const AVFramePtr &avFrame, Type type)
+    : m_avFrame(avFrame)
     , m_type(type)
 {
     assert(m_avFrame && m_avFrame->opaque);
@@ -43,8 +43,8 @@ int64_t QmlAVFrame::pts() const
     return pts * m_decoder->timeBaseUs();
 }
 
-QmlAVVideoFrame::QmlAVVideoFrame(const AVFramePtr &avFramePtr)
-    : QmlAVFrame(avFramePtr, TypeVideo)
+QmlAVVideoFrame::QmlAVVideoFrame(const AVFramePtr &avFrame)
+    : QmlAVFrame(avFrame, TypeVideo)
 {
 }
 
@@ -111,36 +111,36 @@ QmlAVVideoFrame::operator QVideoFrame() const
     }
 }
 
-QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFramePtr)
-    : QmlAVFrame(avFramePtr, TypeAudio)
+QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
+    : QmlAVFrame(avFrame, TypeAudio)
     , m_data(nullptr)
     , m_dataSize(0)
 {
     SwrContext *swrCtx = nullptr;
 
-    int64_t channelLayout = avFrame()->channel_layout != 0 ? avFrame()->channel_layout : av_get_default_channel_layout(avFrame()->channels);
-    AVSampleFormat outSampleFormat = av_get_packed_sample_fmt(static_cast<AVSampleFormat>(avFrame()->format));
+    int64_t channelLayout = avFrame->channel_layout != 0 ? avFrame->channel_layout : av_get_default_channel_layout(avFrame->channels);
+    AVSampleFormat outSampleFormat = av_get_packed_sample_fmt(static_cast<AVSampleFormat>(avFrame->format));
 
     swrCtx = swr_alloc_set_opts(nullptr,
                                 channelLayout,
                                 outSampleFormat,
-                                avFrame()->sample_rate,
+                                avFrame->sample_rate,
                                 channelLayout,
-                                static_cast<AVSampleFormat>(avFrame()->format),
-                                avFrame()->sample_rate,
+                                static_cast<AVSampleFormat>(avFrame->format),
+                                avFrame->sample_rate,
                                 0, nullptr);
 
     if (swr_init(swrCtx) == 0) {
-        m_dataSize = av_samples_get_buffer_size(nullptr, avFrame()->channels, avFrame()->nb_samples, outSampleFormat, 0);
+        m_dataSize = av_samples_get_buffer_size(nullptr, avFrame->channels, avFrame->nb_samples, outSampleFormat, 0);
 //        m_dataSize = avFrame()->channels * avFrame()->nb_samples * av_get_bytes_per_sample(outSampleFormat);
         m_data = new uint8_t[m_dataSize];
 
         // TODO: For the "sws_" functions family we need also to set color range. See sws_setColorspaceDetails().
         swr_convert(swrCtx,
                     &m_data,
-                    avFrame()->nb_samples,
-                    const_cast<const uint8_t**>(avFrame()->data),
-                    avFrame()->nb_samples);
+                    avFrame->nb_samples,
+                    const_cast<const uint8_t**>(avFrame->data),
+                    avFrame->nb_samples);
     }
 
     if (swrCtx) {

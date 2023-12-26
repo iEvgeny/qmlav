@@ -149,7 +149,7 @@ void QmlAVDecoder::setSkipFrameFlag()
 void QmlAVDecoder::worker(const AVPacketPtr &avPacketPtr)
 {
     int ret;
-    AVFramePtr avFramePtr;
+    AVFramePtr avFrame;
 
     assert(m_avCodecCtx);
 
@@ -163,7 +163,7 @@ void QmlAVDecoder::worker(const AVPacketPtr &avPacketPtr)
 
     // Get all the available frames from the decoder
     while (ret >= 0) {
-        ret = avcodec_receive_frame(m_avCodecCtx, avFramePtr);
+        ret = avcodec_receive_frame(m_avCodecCtx, avFrame);
 
         if (ret < 0) {
             // Those two return values are special and mean there is no output
@@ -175,9 +175,9 @@ void QmlAVDecoder::worker(const AVPacketPtr &avPacketPtr)
             break;
         }
 
-        avFramePtr->opaque = this;
+        avFrame->opaque = this;
 
-        if (auto f = frame(avFramePtr)) {
+        if (auto f = frame(avFrame)) {
             // NOTE: Not thread safe! Only makes sense in sync mode.
             if (!m_asyncMode) {
                 m_clock = f->pts() - startPts();
@@ -187,7 +187,7 @@ void QmlAVDecoder::worker(const AVPacketPtr &avPacketPtr)
             emit frameFinished(f);
         }
 
-        avFramePtr.unref();
+        avFrame.unref();
     }
 }
 
@@ -268,9 +268,9 @@ AVPixelFormat QmlAVVideoDecoder::negotiatePixelFormatCb(AVCodecContext *avCodecC
     return *avCodecPixelFormats;
 }
 
-const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::frame(const AVFramePtr &avFramePtr) const
+const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::frame(const AVFramePtr &avFrame) const
 {
-    return std::make_shared<QmlAVVideoFrame>(avFramePtr);
+    return std::make_shared<QmlAVVideoFrame>(avFrame);
 }
 
 QmlAVAudioDecoder::QmlAVAudioDecoder(QObject *parent)
@@ -294,9 +294,9 @@ QAudioFormat QmlAVAudioDecoder::audioFormat() const
     return  format;
 }
 
-const std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::frame(const AVFramePtr &avFramePtr) const
+const std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::frame(const AVFramePtr &avFrame) const
 {
-    auto af = std::make_shared<QmlAVAudioFrame>(avFramePtr);
+    auto af = std::make_shared<QmlAVAudioFrame>(avFrame);
     af->setAudioFormat(audioFormat());
     return af;
 }

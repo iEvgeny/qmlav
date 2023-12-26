@@ -19,7 +19,7 @@ public:
         TypeAudio
     };
 
-    QmlAVFrame(const AVFramePtr &avFramePtr, Type type = TypeUnknown);
+    QmlAVFrame(const AVFramePtr &avFrame, Type type = TypeUnknown);
     QmlAVFrame(const QmlAVFrame &other);
     virtual ~QmlAVFrame();
 
@@ -41,7 +41,7 @@ private:
 class QmlAVVideoFrame final : public QmlAVFrame
 {
 public:
-    QmlAVVideoFrame(const AVFramePtr &avFramePtr);
+    QmlAVVideoFrame(const AVFramePtr &avFrame);
 
     bool isValid() const override;
 
@@ -58,7 +58,7 @@ public:
 class QmlAVAudioFrame final : public QmlAVFrame
 {
 public:
-    QmlAVAudioFrame(const AVFramePtr &avFramePtr);
+    QmlAVAudioFrame(const AVFramePtr &avFrame);
     ~QmlAVAudioFrame() override;
 
     bool isValid() const override;

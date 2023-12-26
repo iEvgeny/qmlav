@@ -26,22 +26,22 @@ QmlAVHWOutput_VAAPI_GLX::~QmlAVHWOutput_VAAPI_GLX()
     glDeleteTextures(1, &m_glTexture);
 }
 
-QVariant QmlAVHWOutput_VAAPI_GLX::handle(const AVFramePtr &avFramePtr)
+QVariant QmlAVHWOutput_VAAPI_GLX::handle(const AVFramePtr &avFrame)
 {
     if (!m_glXBindTexImageEXT || !m_glXReleaseTexImageEXT) {
         logWarning() << "Failed to get GLX proc addresses.";
         return {};
     }
-    if (avFramePtr->format != AV_PIX_FMT_VAAPI) {
-        logWarning() << QString("Wrong pixel format: ") << QmlAVPixelFormat(avFramePtr->format);
+    if (avFrame->format != AV_PIX_FMT_VAAPI) {
+        logWarning() << QString("Wrong pixel format: ") << QmlAVPixelFormat(avFrame->format);
         return {};
 
     }
 
-    auto avHWFramesCtx = reinterpret_cast<AVHWFramesContext *>(avFramePtr->hw_frames_ctx->data);
+    auto avHWFramesCtx = reinterpret_cast<AVHWFramesContext *>(avFrame->hw_frames_ctx->data);
     auto vaDeviceCtx = static_cast<AVVAAPIDeviceContext *>(avHWFramesCtx->device_ctx->hwctx);
     VADisplay vaDisplay = vaDeviceCtx->display;
-    VASurfaceID vaSurface = reinterpret_cast<uintptr_t>(avFramePtr->data[3]);
+    VASurfaceID vaSurface = reinterpret_cast<uintptr_t>(avFrame->data[3]);
 
     if (!m_glxDisplay) {
         Display *glxDisplay = glXGetCurrentDisplay();
@@ -72,7 +72,7 @@ QVariant QmlAVHWOutput_VAAPI_GLX::handle(const AVFramePtr &avFramePtr)
 
         int depth = DefaultDepth(glxDisplay, x11Screen);
 
-        m_x11Pixmap = XCreatePixmap(glxDisplay, DefaultRootWindow(glxDisplay), avFramePtr->width, avFramePtr->height, depth);
+        m_x11Pixmap = XCreatePixmap(glxDisplay, DefaultRootWindow(glxDisplay), avFrame->width, avFrame->height, depth);
 
         const int pixmapAttribs[] = {
             GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_2D_EXT,
@@ -91,8 +91,8 @@ QVariant QmlAVHWOutput_VAAPI_GLX::handle(const AVFramePtr &avFramePtr)
     vaSyncSurface(vaDisplay, vaSurface);
 
     uint status = vaPutSurface(vaDisplay, vaSurface, m_x11Pixmap,
-                               0, 0, avFramePtr->width, avFramePtr->height,
-                               0, 0, avFramePtr->width, avFramePtr->height,
+                               0, 0, avFrame->width, avFrame->height,
+                               0, 0, avFrame->width, avFrame->height,
                                nullptr, 0, VA_FRAME_PICTURE | VA_SRC_BT601);
     if (status != VA_STATUS_SUCCESS) {
         logWarning() << "vaPutSurface() failed: 0x" << QmlAV::Hex << status;

@@ -62,7 +62,7 @@ protected:
     void worker(const AVPacketPtr &avPacketPtr);
 
     virtual bool initVideoDecoder(const QmlAVOptions &avOptions) { return true; }
-    virtual const std::shared_ptr<QmlAVFrame> frame(const AVFramePtr &avFramePtr) const {
+    virtual const std::shared_ptr<QmlAVFrame> frame(const AVFramePtr &avFrame) const {
         // NOTE: Cannot be pure virtual!
         // A stub method called on an early (static) binding when the destructor is executed.
         return {};
@@ -97,7 +97,7 @@ public:
 protected:
     bool initVideoDecoder(const QmlAVOptions &avOptions) override;
     static AVPixelFormat negotiatePixelFormatCb(struct AVCodecContext *avCodecCtx, const AVPixelFormat *avCodecPixelFormats);
-    const std::shared_ptr<QmlAVFrame> frame(const AVFramePtr &avFramePtr) const override;
+    const std::shared_ptr<QmlAVFrame> frame(const AVFramePtr &avFrame) const override;
 
 private:
     std::shared_ptr<QmlAVHWOutput> m_hwOutput;
@@ -115,7 +115,7 @@ public:
     QAudioFormat audioFormat() const;
 
 protected:
-    std::shared_ptr<QmlAVFrame> const frame(const AVFramePtr &avFramePtr) const override;
+    std::shared_ptr<QmlAVFrame> const frame(const AVFramePtr &avFrame) const override;
 };
 
 #endif // QMLAVDECODER_H
