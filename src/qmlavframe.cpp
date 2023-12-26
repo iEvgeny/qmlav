@@ -13,15 +13,22 @@ QmlAVFrame::QmlAVFrame(const AVFramePtr &avFramePtr, Type type)
 {
     assert(m_avFrame && m_avFrame->opaque);
 
-    m_decoder = static_cast<QmlAVDecoder *>(m_avFrame->opaque)->shared_from_this();
-    m_decoder->counters().frameQueueLengthAdd();
+    // NOTE: shared_from_this() throws an exception when the QmlAVDecoder destructor is executed,
+    // while weak_from_this().lock() constructs an empty std::shared_ptr<QmlAVDecoder>.
+    m_decoder = static_cast<QmlAVDecoder *>(m_avFrame->opaque)->weak_from_this().lock();
+
+    if (m_decoder) {
+        m_decoder->counters().frameQueueLengthAdd();
+    }
 }
 
 QmlAVFrame::QmlAVFrame(const QmlAVFrame &other) : QmlAVFrame(other.m_avFrame, other.m_type) { }
 
 QmlAVFrame::~QmlAVFrame()
 {
-    m_decoder->counters().frameQueueLengthSub();
+    if (m_decoder) {
+        m_decoder->counters().frameQueueLengthSub();
+    }
 }
 
 int64_t QmlAVFrame::pts() const
@@ -43,7 +50,7 @@ QmlAVVideoFrame::QmlAVVideoFrame(const AVFramePtr &avFramePtr)
 
 bool QmlAVVideoFrame::isValid() const
 {
-    return avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3];
+    return m_decoder && (avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3]);
 }
 
 QSize QmlAVVideoFrame::sampleAspectRatio() const
@@ -91,13 +98,17 @@ QmlAVVideoFrame::operator QVideoFrame() const
 {
     QmlAVVideoBuffer *buffer;
 
-    if (isHWDecoded()) {
-        buffer = new QmlAVVideoBuffer_GPU(*this, std::static_pointer_cast<const QmlAVVideoDecoder>(m_decoder)->hwOutput());
-    } else {
-        buffer = new QmlAVVideoBuffer_CPU(*this);
-    }
+    if (isValid())  {
+        if (isHWDecoded()) {
+            buffer = new QmlAVVideoBuffer_GPU(*this, std::static_pointer_cast<const QmlAVVideoDecoder>(m_decoder)->hwOutput());
+        } else {
+            buffer = new QmlAVVideoBuffer_CPU(*this);
+        }
 
-    return QVideoFrame(buffer, size(), buffer->pixelFormat());
+        return QVideoFrame(buffer, size(), buffer->pixelFormat());
+    } else {
+        return QVideoFrame();
+    }
 }
 
 QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFramePtr)
