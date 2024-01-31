@@ -66,7 +66,7 @@ protected:
         // NOTE: Cannot be pure virtual!
         // A stub method called on an early (static) binding when the destructor is executed.
         return {};
-    };
+    }
 
 protected:
     AVCodecContext *m_avCodecCtx;

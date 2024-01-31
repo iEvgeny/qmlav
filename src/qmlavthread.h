@@ -36,7 +36,7 @@ class QmlAVAbstractWorker
 {
 public:
     QmlAVAbstractWorker() { }
-    virtual ~QmlAVAbstractWorker() { };
+    virtual ~QmlAVAbstractWorker() { }
 
     virtual QmlAVLoopController invoke() = 0;
     virtual void *results() { return nullptr; }

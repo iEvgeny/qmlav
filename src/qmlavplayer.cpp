@@ -255,7 +255,7 @@ void QmlAVPlayer::setHasAudio(bool hasAudio)
         return;
     }
 
-    logDebug() << QString("setHasAudio(hasAudio=%1)").arg(hasAudio);logDebug() << QString("setHasAudio(hasAudio=%1)").arg(hasAudio);
+    logDebug() << QString("setHasAudio(hasAudio=%1)").arg(hasAudio);
 
     m_hasAudio = hasAudio;
 
