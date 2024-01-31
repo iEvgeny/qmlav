@@ -171,7 +171,7 @@ public:
             // NOTE: Here we do not use the idiom of perfect forwarding.
             // It is a casting of argument types according to the signature of the called object.
             return std::invoke(callable, std::forward<Args>(args)...);
-        };
+        }
     };
 
     template<typename Ret, typename ...Args>
@@ -203,7 +203,7 @@ public:
     // Logging tools
     static QLoggingCategory &loggingCategory() { return m_loggingCategory; }
     template<typename T>
-    static QString rttiTypeName(const T &type) {
+    static QString rttiTypeName([[maybe_unused]] const T &type) {
         char *n = abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr);
         QString ret(n);
         free(n);

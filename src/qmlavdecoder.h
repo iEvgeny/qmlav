@@ -61,8 +61,8 @@ protected:
     void setSkipFrameFlag();
     void worker(const AVPacketPtr &avPacketPtr);
 
-    virtual bool initVideoDecoder(const QmlAVOptions &avOptions) { return true; }
-    virtual const std::shared_ptr<QmlAVFrame> frame(const AVFramePtr &avFrame) const {
+    virtual bool initVideoDecoder([[maybe_unused]] const QmlAVOptions &avOptions) { return true; }
+    virtual const std::shared_ptr<QmlAVFrame> frame([[maybe_unused]] const AVFramePtr &avFrame) const {
         // NOTE: Cannot be pure virtual!
         // A stub method called on an early (static) binding when the destructor is executed.
         return {};

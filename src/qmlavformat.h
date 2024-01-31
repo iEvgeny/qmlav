@@ -15,7 +15,7 @@ class QmlAVPixelFormat
     struct PixelFormatMap {
         AVPixelFormat avFormat;
         QVideoFrame::PixelFormat format;
-        bool qtNative;
+        bool qtNative = false;
     };
 
 public:

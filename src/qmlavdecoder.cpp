@@ -138,17 +138,17 @@ void QmlAVDecoder::setSkipFrameFlag()
 
     auto exceeding = length - limit;
     if (exceeding > 0) {
-        m_avCodecCtx->skip_frame = m_avCodecCtx->skip_frame = AVDISCARD_ALL;
+        m_avCodecCtx->skip_frame = AVDISCARD_ALL;
         m_counters.framesDiscardedAdd();
         logDebug() << QString("Exceeded %1 frames queue limit by %2 frame(s)!").arg(limit).arg(exceeding);
     } else {
-        m_avCodecCtx->skip_frame = m_avCodecCtx->skip_frame = AVDISCARD_DEFAULT;
+        m_avCodecCtx->skip_frame = AVDISCARD_DEFAULT;
     }
 }
 
 void QmlAVDecoder::worker(const AVPacketPtr &avPacketPtr)
 {
-    int ret;
+    int ret = AVERROR_UNKNOWN;
     AVFramePtr avFrame;
 
     assert(m_avCodecCtx);

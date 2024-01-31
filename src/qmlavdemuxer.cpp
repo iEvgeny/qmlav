@@ -28,7 +28,7 @@ QmlAVDemuxer::~QmlAVDemuxer()
 
 void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
 {
-    int ret;
+    int ret = AVERROR_UNKNOWN;
     QString source(url.toString());
 
     if (m_avFormatCtx) {
