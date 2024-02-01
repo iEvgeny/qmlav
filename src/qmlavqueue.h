@@ -1,7 +1,6 @@
 #ifndef QMLAVQUEUE_H
 #define QMLAVQUEUE_H
 
-#include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <queue>
@@ -10,9 +9,9 @@ template <typename T>
 class QmlAVQueue
 {
 public:
-    QmlAVQueue() : m_waitPredicate(true) { }
+    QmlAVQueue() : m_waitValue(true) { }
     virtual ~QmlAVQueue() {
-        setWait(false);
+        setWaitValue(false);
     }
 
     QmlAVQueue(const QmlAVQueue &other) = delete;
@@ -38,13 +37,16 @@ public:
         }
         m_conditionVar.notify_one();
     }
-    bool dequeue(T &data) {
+    bool dequeue(T &value) {
         std::unique_lock<std::mutex> lock(m_mutex);
 
-        m_conditionVar.wait(lock, [&] { return !m_waitPredicate.load(std::memory_order_seq_cst) || !m_queue.empty(); });
+        m_conditionVar.wait(lock, [&] {
+            // Executes in lock context
+            return !m_queue.empty() || !m_waitValue;
+        });
 
         if (!m_queue.empty()) {
-            data = m_queue.front();
+            value = m_queue.front();
             m_queue.pop();
             return true;
         }
@@ -52,8 +54,11 @@ public:
         return false;
     }
 
-    void setWait(bool wait) {
-        m_waitPredicate.store(wait, std::memory_order_seq_cst);
+    void setWaitValue(bool wait) {
+        {
+            std::scoped_lock lock(m_mutex);
+            m_waitValue = wait;
+        }
         m_conditionVar.notify_all();
     }
 
@@ -69,9 +74,9 @@ public:
 
 private:
     mutable std::mutex m_mutex;
-    std::atomic<bool> m_waitPredicate;
     std::condition_variable m_conditionVar;
     std::queue<T> m_queue;
+    bool m_waitValue;
 };
 
 #endif // QMLAVQUEUE_H

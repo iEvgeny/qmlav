@@ -121,6 +121,8 @@ TEST(QmlAVThread, QmlAVTask_GenericFunction)
     QmlAVThreadLiveController<int> c = t.getLiveController();
 
     EXPECT_EQ(c.result(), 42);
+
+    c.requestInterruption(true);
 }
 
 TEST(QmlAVThread, QmlAVTask_ClassMember)
@@ -133,6 +135,8 @@ TEST(QmlAVThread, QmlAVTask_ClassMember)
     QmlAVThreadLiveController<int> c = t.getLiveController();
 
     EXPECT_EQ(c.result(), 42);
+
+    c.requestInterruption(true);
 }
 
 TEST(QmlAVThread, QmlAVTask_Functor)
@@ -143,6 +147,8 @@ TEST(QmlAVThread, QmlAVTask_Functor)
     QmlAVThreadLiveController<int> c = t.getLiveController();
 
     EXPECT_EQ(c.result(), 42);
+
+    c.requestInterruption(true);
 }
 
 TEST(QmlAVThread, QmlAVTask_DemuxerDecoderThreadModel)
@@ -166,4 +172,6 @@ TEST(QmlAVThread, QmlAVTask_DemuxerDecoderThreadModel)
     for (int i = 0; i < tasksCount; ++i) {
         EXPECT_EQ(decoderThread.result(), 42);
     }
+
+    decoderThread.requestInterruption(true);
 }

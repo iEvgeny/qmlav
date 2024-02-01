@@ -57,7 +57,7 @@ public:
     }
 
     virtual void requestInterruption() override {
-        m_results.setWait(false);
+        m_results.setWaitValue(false);
     }
 
 protected:
@@ -153,8 +153,10 @@ public:
 
     virtual void requestInterruption() override final {
         if (m_argsQueue) {
-            m_argsQueue->setWait(false);
+            m_argsQueue->setWaitValue(false);
         }
+
+        QmlAVWorkerInvokeImpl<Callable>::requestInterruption();
     }
 
 private:
