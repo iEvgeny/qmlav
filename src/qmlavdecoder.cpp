@@ -284,7 +284,11 @@ QAudioFormat QmlAVAudioDecoder::audioFormat() const
 
     if (isOpen()) {
         format.setSampleRate(m_avCodecCtx->sample_rate);
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 24, 100)
         format.setChannelCount(m_avCodecCtx->channels);
+#else
+        format.setChannelCount(m_avCodecCtx->ch_layout.nb_channels);
+#endif
         format.setCodec("audio/pcm");
         format.setByteOrder(AV_NE(QAudioFormat::BigEndian, QAudioFormat::LittleEndian));
         format.setSampleType(QmlAVSampleFormat::audioFormatFromAVFormat(m_avCodecCtx->sample_fmt));

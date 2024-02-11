@@ -118,9 +118,15 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
 {
     SwrContext *swrCtx = nullptr;
 
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(57, 24, 100)
     int64_t channelLayout = avFrame->channel_layout != 0 ? avFrame->channel_layout : av_get_default_channel_layout(avFrame->channels);
+#else
+    AVChannelLayout channelLayout =avFrame->ch_layout;
+#endif
+
     AVSampleFormat outSampleFormat = av_get_packed_sample_fmt(static_cast<AVSampleFormat>(avFrame->format));
 
+#if LIBSWRESAMPLE_VERSION_INT < AV_VERSION_INT(4, 5, 100)
     swrCtx = swr_alloc_set_opts(nullptr,
                                 channelLayout,
                                 outSampleFormat,
@@ -129,9 +135,26 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
                                 static_cast<AVSampleFormat>(avFrame->format),
                                 avFrame->sample_rate,
                                 0, nullptr);
+#else
+    swr_alloc_set_opts2(&swrCtx,
+                        &channelLayout,
+                        outSampleFormat,
+                        avFrame->sample_rate,
+                        &channelLayout,
+                        static_cast<AVSampleFormat>(avFrame->format),
+                        avFrame->sample_rate,
+                        0, nullptr);
+#endif
 
     if (swr_init(swrCtx) == 0) {
-        m_dataSize = av_samples_get_buffer_size(nullptr, avFrame->channels, avFrame->nb_samples, outSampleFormat, 0);
+        m_dataSize = av_samples_get_buffer_size(nullptr,
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(57, 24, 100)
+                                                avFrame->channels,
+#else
+                                                avFrame->ch_layout.nb_channels,
+#endif
+                                                avFrame->nb_samples, outSampleFormat, 0);
+
 //        m_dataSize = avFrame()->channels * avFrame()->nb_samples * av_get_bytes_per_sample(outSampleFormat);
         m_data = new uint8_t[m_dataSize];
 
