@@ -17,7 +17,7 @@ if [[ -z ${ANDROID_NDK_HOST} ]]; then
     ANDROID_NDK_HOST=linux-x86_64
 fi
 if [[ -z ${ANDROID_NDK_ROOT} ]]; then
-    ANDROID_NDK_ROOT=~/Android/Sdk/ndk/21.1.6352462
+    ANDROID_NDK_ROOT=~/Android/Sdk/ndk/21.3.6528147
 fi
 
 case ${ANDROID_ABI} in

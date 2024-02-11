@@ -58,6 +58,7 @@ std::shared_ptr<QmlAVHWOutput> QmlAVOptions::hwOutput() const
     std::shared_ptr<QmlAVHWOutput> hwOutput;
 
     find("hwaccel_output", [&](std::string value) {
+#if defined(__linux__) && !defined(__ANDROID__)
         if (value == "glx") {
             if (avHWDeviceType() != AV_HWDEVICE_TYPE_VAAPI ||
                 QGuiApplication::platformName() != "xcb") {
@@ -68,6 +69,7 @@ std::shared_ptr<QmlAVHWOutput> QmlAVOptions::hwOutput() const
             hwOutput = std::make_shared<QmlAVHWOutput_VAAPI_GLX>();
             return;
         }
+#endif
 
         logWarning() << "Output module \"" << value << "\" is not supported!";
     });

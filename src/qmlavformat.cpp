@@ -1,5 +1,7 @@
 #include "qmlavformat.h"
 
+#include <unordered_map>
+
 extern "C" {
 #include <libavutil/pixdesc.h>
 }

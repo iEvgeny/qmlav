@@ -19,11 +19,16 @@ set(QMLAV_FILES
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavplayer.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavplayer.h
 )
 
-set(QMLAV_LINK_DEPENDENCIES va va-x11 GL GLX X11 avformat avcodec avutil swscale swresample avdevice)
+set(QMLAV_LINK_DEPENDENCIES avformat avcodec avutil swscale swresample avdevice)
+if (UNIX AND NOT ANDROID)
+    list(APPEND QMLAV_LINK_DEPENDENCIES va va-x11 GL GLX X11)
+endif()
 
 set(QMLAV_INCLUDE ${QMLAV_INCLUDE} PARENT_SCOPE)
 set(QMLAV_FILES ${QMLAV_FILES} PARENT_SCOPE)
 set(QMLAV_LINK_DEPENDENCIES ${QMLAV_LINK_DEPENDENCIES} PARENT_SCOPE)
 
 # Tests
-add_subdirectory(src/tests)
+if (NOT ANDROID)
+    add_subdirectory(src/tests)
+endif()

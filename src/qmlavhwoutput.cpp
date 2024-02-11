@@ -1,5 +1,6 @@
 #include "qmlavhwoutput.h"
 
+#if defined(__linux__) && !defined(__ANDROID__)
 #include <va/va_x11.h>
 
 extern "C" {
@@ -109,3 +110,4 @@ QVariant QmlAVHWOutput_VAAPI_GLX::handle(const AVFramePtr &avFrame)
 
     return m_glTexture;
 }
+#endif

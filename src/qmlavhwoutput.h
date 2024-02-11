@@ -7,8 +7,6 @@
 #include "qmlavutils.h"
 #include "qmlavformat.h"
 
-#include <GL/glx.h>
-
 class QmlAVHWOutput
 {
 public:
@@ -30,6 +28,9 @@ public:
     virtual QVariant handle(const AVFramePtr &avFrame) = 0;
 };
 
+#if defined(__linux__) && !defined(__ANDROID__)
+#include <GL/glx.h>
+
 class QmlAVHWOutput_VAAPI_GLX final : public QmlAVHWOutput
 {
 public:
@@ -50,5 +51,6 @@ private:
     PFNGLXBINDTEXIMAGEEXTPROC m_glXBindTexImageEXT;
     PFNGLXRELEASETEXIMAGEEXTPROC m_glXReleaseTexImageEXT;
 };
+#endif
 
 #endif // QMLAVHWOUTPUT_H
