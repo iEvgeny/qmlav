@@ -139,7 +139,6 @@ void QmlAVDecoder::setSkipFrameFlag()
     auto exceeding = length - limit;
     if (exceeding > 0) {
         m_avCodecCtx->skip_frame = AVDISCARD_ALL;
-        m_counters.framesDiscardedAdd();
         logDebug() << QString("Exceeded %1 frames queue limit by %2 frame(s)!").arg(limit).arg(exceeding);
     } else {
         m_avCodecCtx->skip_frame = AVDISCARD_DEFAULT;
@@ -175,16 +174,20 @@ void QmlAVDecoder::worker(const AVPacketPtr &avPacket)
             break;
         }
 
-        avFrame->opaque = this;
+        if (m_avCodecCtx->skip_frame >= AVDISCARD_NONREF) {
+            m_counters.framesDiscardedAdd();
+        } else {
+            avFrame->opaque = this;
 
-        if (auto f = frame(avFrame)) {
-            // NOTE: Not thread safe! Only makes sense in sync mode.
-            if (!m_asyncMode) {
-                m_clock = f->pts() - startPts();
+            if (auto f = frame(avFrame)) {
+                // NOTE: Not thread safe! Only makes sense in sync mode.
+                if (!m_asyncMode) {
+                    m_clock = f->pts() - startPts();
+                }
+
+                m_counters.framesDecodedAdd();
+                emit frameFinished(f);
             }
-
-            m_counters.framesDecodedAdd();
-            emit frameFinished(f);
         }
 
         avFrame.unref();
