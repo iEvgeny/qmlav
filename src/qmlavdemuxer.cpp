@@ -124,7 +124,7 @@ void QmlAVDemuxer::start()
 
     m_demuxerThread = QmlAVThread::loop([=]() mutable -> QmlAVLoopController {
         int ret;
-        AVPacketPtr avPacketPtr;
+        AVPacketPtr avPacket;
 
         m_loaderThread.waitForFinished();
 
@@ -138,7 +138,7 @@ void QmlAVDemuxer::start()
 
         m_interruptCallback.resetTimer();
 
-        ret = av_read_frame(m_avFormatCtx, avPacketPtr);
+        ret = av_read_frame(m_avFormatCtx, avPacket);
         if (ret < 0) {
             if (ret == AVERROR_EOF) {
                 logInfo() << "End of media";
@@ -155,11 +155,11 @@ void QmlAVDemuxer::start()
             return QmlAVLoopController::Interrupt;
         }
 
-        if (avPacketPtr->stream_index == m_videoDecoder->streamIndex()) {
-            m_videoDecoder->decodeAVPacket(avPacketPtr);
+        if (avPacket->stream_index == m_videoDecoder->streamIndex()) {
+            m_videoDecoder->decodeAVPacket(avPacket);
             clock = m_videoDecoder->clock();
-        } else if (avPacketPtr->stream_index == m_audioDecoder->streamIndex()) {
-            m_audioDecoder->decodeAVPacket(avPacketPtr);
+        } else if (avPacket->stream_index == m_audioDecoder->streamIndex()) {
+            m_audioDecoder->decodeAVPacket(avPacket);
             if (!m_videoDecoder->isOpen()) {
                 clock = m_audioDecoder->clock();
             }

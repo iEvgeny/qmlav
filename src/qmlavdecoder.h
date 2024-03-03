@@ -49,7 +49,7 @@ public:
     int64_t startPts() const;
     int64_t clock() const { return m_clock; }
 
-    void decodeAVPacket(const AVPacketPtr &avPacketPtr);
+    void decodeAVPacket(const AVPacketPtr &avPacket);
 
     auto &counters() { return m_counters; }
     const auto &counters() const { return m_counters; }
@@ -59,7 +59,7 @@ signals:
 
 protected:
     void setSkipFrameFlag();
-    void worker(const AVPacketPtr &avPacketPtr);
+    void worker(const AVPacketPtr &avPacket);
 
     virtual bool initVideoDecoder([[maybe_unused]] const QmlAVOptions &avOptions) { return true; }
     virtual const std::shared_ptr<QmlAVFrame> frame([[maybe_unused]] const AVFramePtr &avFrame) const {

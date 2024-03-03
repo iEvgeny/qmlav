@@ -270,7 +270,7 @@ public:
 
 protected:
     QmlAVThreadLiveController(std::shared_ptr<QmlAVWorkerThread> thread) : m_thread(thread) {
-        logDebug() << QString("QmlAVThreadLiveController(thread=0x%1)").arg(QString().number(reinterpret_cast<uintptr_t>(thread.get()), 16));
+        logDebug() << QString("QmlAVThreadLiveController(thread=0x%1)").arg(QString().number(reinterpret_cast<uintptr_t>(m_thread.get()), 16));
 
         if (m_thread) {
             m_thread->start();

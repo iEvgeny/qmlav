@@ -120,12 +120,12 @@ int64_t QmlAVDecoder::startPts() const
     return 0;
 }
 
-void QmlAVDecoder::decodeAVPacket(const AVPacketPtr &avPacketPtr)
+void QmlAVDecoder::decodeAVPacket(const AVPacketPtr &avPacket)
 {
     if (m_asyncMode) {
-        m_threadTask(this, avPacketPtr);
+        m_threadTask(this, avPacket);
     } else {
-        worker(avPacketPtr);
+        worker(avPacket);
     }
 }
 
@@ -146,7 +146,7 @@ void QmlAVDecoder::setSkipFrameFlag()
     }
 }
 
-void QmlAVDecoder::worker(const AVPacketPtr &avPacketPtr)
+void QmlAVDecoder::worker(const AVPacketPtr &avPacket)
 {
     int ret = AVERROR_UNKNOWN;
     AVFramePtr avFrame;
@@ -156,7 +156,7 @@ void QmlAVDecoder::worker(const AVPacketPtr &avPacketPtr)
     setSkipFrameFlag();
 
     // Submit the packet to the decoder
-    ret = avcodec_send_packet(m_avCodecCtx, avPacketPtr);
+    ret = avcodec_send_packet(m_avCodecCtx, avPacket);
     if (ret < 0) {
         logWarning() << QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
     }
