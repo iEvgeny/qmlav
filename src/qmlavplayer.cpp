@@ -64,8 +64,6 @@ void QmlAVPlayer::stop()
     }
 
     if (m_audioOutput) {
-        m_audioFormat = {};
-
         m_audioOutput->stop();
         delete m_audioOutput;
         m_audioOutput = nullptr;
@@ -81,27 +79,27 @@ void QmlAVPlayer::setVideoSurface(QAbstractVideoSurface *surface)
     if (m_videoSurface != surface) {
         stop();
     }
-
+    
     m_videoSurface = surface;
 }
 
 void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
 {
-    if (m_playbackState == QMediaPlayer::PlayingState) {
+    if (frame->isValid() && m_playbackState == QMediaPlayer::PlayingState) {
         if (frame->type() == QmlAVFrame::TypeVideo) {
             auto vf = std::static_pointer_cast<QmlAVVideoFrame>(frame);
             QVideoFrame qvf = *vf;
-
-            if (m_videoSurface && frame->isValid()) {
+            
+            if (m_videoSurface) {
                 if (!m_videoSurface->isActive()) {
                     QVideoSurfaceFormat sf(qvf.size(), qvf.pixelFormat(), qvf.handleType());
                     sf.setPixelAspectRatio(vf->sampleAspectRatio());
                     sf.setYCbCrColorSpace(vf->colorSpace());
                     logDebug() << "Starting with: "
-                              << "QVideoSurfaceFormat(" << sf.pixelFormat() << ", " << sf.frameSize()
-                              << ", viewport=" << sf.viewport() << ", pixelAspectRatio=" << sf.pixelAspectRatio()
-                              << ", handleType=" << sf.handleType() <<  ", yCbCrColorSpace=" << sf.yCbCrColorSpace()
-                              << ')';
+                               << "QVideoSurfaceFormat(" << sf.pixelFormat() << ", " << sf.frameSize()
+                               << ", viewport=" << sf.viewport() << ", pixelAspectRatio=" << sf.pixelAspectRatio()
+                               << ", handleType=" << sf.handleType() <<  ", yCbCrColorSpace=" << sf.yCbCrColorSpace()
+                               << ')';
                     if (!m_videoSurface->start(sf)) {
                         logCritical() << "Error starting the video surface presenting frames.";
                     }
@@ -113,20 +111,24 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                 }
             }
         } else if (frame->type() == QmlAVFrame::TypeAudio) {
-            if (m_audioOutput && frame->isValid()) {
-                m_audioQueue.push(std::static_pointer_cast<QmlAVAudioFrame>(frame));
+            auto af = std::static_pointer_cast<QmlAVAudioFrame>(frame);
+
+            if (m_audioOutput) {
+                m_audioQueue.push(af);
+            } else {
+                if (af->audioFormat().isValid()) {
+                    m_audioOutput = new QAudioOutput(m_audioDeviceInfo, af->audioFormat());
+                    m_audioOutput->setVolume(QAudio::convertVolume(m_volume,
+                                                                   QAudio::LogarithmicVolumeScale,
+                                                                   QAudio::LinearVolumeScale));
+                    // NOTE: When use start() with a internal pointer to QIODevice we have a bug https://bugreports.qt.io/browse/QTBUG-60575 "infinite loop"
+                    // at a volume other than 1.0f. In addition, the use of a buffer (as queue) improves sound quality.
+                    m_audioOutput->start(&m_audioQueue);
+                    setHasAudio(true);
+                }
             }
         }
     }
-}
-
-void QmlAVPlayer::setAudioFormat(const QAudioFormat &format)
-{
-    if (m_audioFormat == format) {
-        return;
-    }
-
-    m_audioFormat = format;
 }
 
 void QmlAVPlayer::setAVOptions(const QVariantMap &avOptions)
@@ -268,7 +270,6 @@ bool QmlAVPlayer::load()
         m_demuxer = new QmlAVDemuxer();
 
         connect(m_demuxer, &QmlAVDemuxer::frameFinished, this, &QmlAVPlayer::frameHandler);
-        connect(m_demuxer, &QmlAVDemuxer::audioFormatChanged, this, &QmlAVPlayer::setAudioFormat);
         connect(m_demuxer, &QmlAVDemuxer::playbackStateChanged, this, &QmlAVPlayer::setPlaybackState);
         connect(m_demuxer, &QmlAVDemuxer::mediaStatusChanged, this, &QmlAVPlayer::setStatus);
 
@@ -287,16 +288,6 @@ void QmlAVPlayer::stateMachine()
     if (m_playbackState == QMediaPlayer::PlayingState && m_status == QMediaPlayer::BufferedMedia) {
         if (m_videoSurface && !m_videoSurface->isActive()) {
             setHasVideo(true);
-        }
-        if (!m_audioOutput && m_audioFormat.isValid()) {
-            m_audioOutput = new QAudioOutput(m_audioDeviceInfo, m_audioFormat);
-            m_audioOutput->setVolume(QAudio::convertVolume(m_volume,
-                                                           QAudio::LogarithmicVolumeScale,
-                                                           QAudio::LinearVolumeScale));
-            // NOTE: When use start() with a internal pointer to QIODevice we have a bug https://bugreports.qt.io/browse/QTBUG-60575 "infinite loop"
-            // at a volume other than 1.0f. In addition, the use of a buffer (as queue) improves sound quality.
-            m_audioOutput->start(&m_audioQueue);
-            setHasAudio(true);
         }
     } else if (m_playbackState == QMediaPlayer::PausedState) {
         // TODO: Implement it

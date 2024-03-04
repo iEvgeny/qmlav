@@ -215,7 +215,6 @@ void QmlAVDemuxer::initDecoders(const QmlAVOptions &avOptions)
     if (bestAudioStream >= 0) {
         if (m_audioDecoder->open(m_avFormatCtx->streams[bestAudioStream], avOptions)) {
             logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_audioDecoder->name()).arg(bestAudioStream);
-            emit audioFormatChanged(m_audioDecoder->audioFormat());
         }
     }
 }

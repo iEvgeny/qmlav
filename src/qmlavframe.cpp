@@ -154,11 +154,10 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
                                                 avFrame->ch_layout.nb_channels,
 #endif
                                                 avFrame->nb_samples, outSampleFormat, 0);
+        // m_dataSize = avFrame->channels * avFrame->nb_samples * av_get_bytes_per_sample(outSampleFormat);
 
-//        m_dataSize = avFrame()->channels * avFrame()->nb_samples * av_get_bytes_per_sample(outSampleFormat);
         m_data = new uint8_t[m_dataSize];
 
-        // TODO: For the "sws_" functions family we need also to set color range. See sws_setColorspaceDetails().
         swr_convert(swrCtx,
                     &m_data,
                     avFrame->nb_samples,
@@ -183,4 +182,26 @@ bool QmlAVAudioFrame::isValid() const
     }
 
     return false;
+}
+
+QAudioFormat QmlAVAudioFrame::audioFormat() const
+{
+    QAudioFormat format;
+
+    if (isValid()) {
+        AVSampleFormat outSampleFormat = av_get_packed_sample_fmt(static_cast<AVSampleFormat>(avFrame()->format));
+
+        format.setSampleRate(avFrame()->sample_rate);
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 24, 100)
+        format.setChannelCount(avFrame()->channels);
+#else
+        format.setChannelCount(avFrame()->ch_layout.nb_channels);
+#endif
+        format.setCodec("audio/pcm");
+        format.setByteOrder(AV_NE(QAudioFormat::BigEndian, QAudioFormat::LittleEndian));
+        format.setSampleType(QmlAVSampleFormat::audioFormatFromAVFormat(outSampleFormat));
+        format.setSampleSize(av_get_bytes_per_sample(outSampleFormat) * 8);
+    }
+
+    return  format;
 }

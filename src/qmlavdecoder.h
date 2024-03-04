@@ -112,8 +112,6 @@ class QmlAVAudioDecoder final : public QmlAVDecoder
 public:
     QmlAVAudioDecoder(QObject *parent = nullptr);
 
-    QAudioFormat audioFormat() const;
-
 protected:
     std::shared_ptr<QmlAVFrame> const frame(const AVFramePtr &avFrame) const override;
 };

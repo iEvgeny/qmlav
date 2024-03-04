@@ -64,7 +64,6 @@ public slots:
     void stop();
     void setVideoSurface(QAbstractVideoSurface *surface);
     void frameHandler(const std::shared_ptr<QmlAVFrame> frame);
-    void setAudioFormat(const QAudioFormat &format);
 
     void setAVOptions(const QVariantMap &avOptions);
     void setAutoLoad(bool autoLoad);
@@ -105,7 +104,6 @@ private:
 
     QmlAVAudioQueue m_audioQueue;
     QAudioDeviceInfo m_audioDeviceInfo;
-    QAudioFormat m_audioFormat;
     QAudioOutput *m_audioOutput;
 
     QVariantMap m_avOptions;

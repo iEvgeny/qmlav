@@ -59,7 +59,6 @@ public:
     QVariantMap stat() const;
 
 signals:
-    void audioFormatChanged(const QAudioFormat &format);
     void playbackStateChanged(QMediaPlayer::State state);
     void mediaStatusChanged(QMediaPlayer::MediaStatus status);
     void frameFinished(const std::shared_ptr<QmlAVFrame> frame);

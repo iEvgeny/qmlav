@@ -63,15 +63,13 @@ public:
 
     bool isValid() const override;
 
-    QAudioFormat audioFormat() const { return m_audioFormat; }
-    void setAudioFormat(const QAudioFormat &format) { m_audioFormat = format; }
+    QAudioFormat audioFormat() const;
     char *data() const { return reinterpret_cast<char *>(m_data); }
     int dataSize() const { return m_dataSize; }
 
 private:
     uint8_t *m_data;
     int m_dataSize;
-    QAudioFormat m_audioFormat;
 };
 
 #endif // QMLAVFRAME_H

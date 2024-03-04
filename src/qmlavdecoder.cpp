@@ -281,29 +281,7 @@ QmlAVAudioDecoder::QmlAVAudioDecoder(QObject *parent)
 {
 }
 
-QAudioFormat QmlAVAudioDecoder::audioFormat() const
-{
-    QAudioFormat format;
-
-    if (isOpen()) {
-        format.setSampleRate(m_avCodecCtx->sample_rate);
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 24, 100)
-        format.setChannelCount(m_avCodecCtx->channels);
-#else
-        format.setChannelCount(m_avCodecCtx->ch_layout.nb_channels);
-#endif
-        format.setCodec("audio/pcm");
-        format.setByteOrder(AV_NE(QAudioFormat::BigEndian, QAudioFormat::LittleEndian));
-        format.setSampleType(QmlAVSampleFormat::audioFormatFromAVFormat(m_avCodecCtx->sample_fmt));
-        format.setSampleSize(av_get_bytes_per_sample(m_avCodecCtx->sample_fmt) * 8);
-    }
-
-    return  format;
-}
-
 const std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::frame(const AVFramePtr &avFrame) const
 {
-    auto af = std::make_shared<QmlAVAudioFrame>(avFrame);
-    af->setAudioFormat(audioFormat());
-    return af;
+    return std::make_shared<QmlAVAudioFrame>(avFrame);
 }
