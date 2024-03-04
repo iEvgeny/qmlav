@@ -192,7 +192,7 @@ QAudioFormat QmlAVAudioFrame::audioFormat() const
         AVSampleFormat outSampleFormat = av_get_packed_sample_fmt(static_cast<AVSampleFormat>(avFrame()->format));
 
         format.setSampleRate(avFrame()->sample_rate);
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59, 24, 100)
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(57, 24, 100)
         format.setChannelCount(avFrame()->channels);
 #else
         format.setChannelCount(avFrame()->ch_layout.nb_channels);
