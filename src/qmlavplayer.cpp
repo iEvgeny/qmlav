@@ -102,8 +102,12 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                                << ')';
                     if (!m_videoSurface->start(sf)) {
                         logCritical() << "Error starting the video surface presenting frames.";
+                        return;
                     }
+
+                    setHasVideo(true);
                 }
+
                 if (m_videoSurface->isActive()) {
                     if (!m_videoSurface->present(qvf)) {
                         stop();
@@ -285,11 +289,7 @@ void QmlAVPlayer::stateMachine()
 {
     logDebug() << QString("stateMachine[m_status=%1; m_playbackState=%2]()").arg(m_status).arg(m_playbackState);
 
-    if (m_playbackState == QMediaPlayer::PlayingState && m_status == QMediaPlayer::BufferedMedia) {
-        if (m_videoSurface && !m_videoSurface->isActive()) {
-            setHasVideo(true);
-        }
-    } else if (m_playbackState == QMediaPlayer::PausedState) {
+    if (m_playbackState == QMediaPlayer::PausedState) {
         // TODO: Implement it
         logInfo() << QString("%1:%2 Not implemented!").arg(__FILE__).arg(__LINE__);
     } else if (m_playbackState == QMediaPlayer::StoppedState) {
