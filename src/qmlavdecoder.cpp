@@ -129,6 +129,7 @@ void QmlAVDecoder::decodeAVPacket(const AVPacketPtr &avPacket)
     }
 }
 
+// TODO: Consider only video frames
 void QmlAVDecoder::setSkipFrameFlag()
 {
     assert(m_avCodecCtx);

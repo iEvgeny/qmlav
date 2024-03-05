@@ -125,6 +125,34 @@ uint32_t QmlAVOptions::demuxerTimeout() const
     return t;
 }
 
+bool QmlAVOptions::videoDisable() const
+{
+    bool disable = false;
+
+    find("vn", [&](bool value) {
+        disable = value;
+    });
+
+    return disable;
+}
+
+bool QmlAVOptions::audioDisable() const
+{
+    bool disable = false;
+
+    find("an", [&](bool value) {
+        disable = value;
+    });
+
+    return disable;
+}
+
+template<>
+bool QmlAVOptions::sTo<bool>(std::string value) const
+{
+    return value.size() == 0 || value == "true";
+}
+
 template<>
 uint32_t QmlAVOptions::sTo<uint32_t>(std::string value) const
 {

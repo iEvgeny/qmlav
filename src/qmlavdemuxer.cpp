@@ -205,14 +205,14 @@ bool QmlAVDemuxer::isRealtime(QUrl url) const
 void QmlAVDemuxer::initDecoders(const QmlAVOptions &avOptions)
 {
     int bestVideoStream = av_find_best_stream(m_avFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
-    if (bestVideoStream >= 0) {
+    if (bestVideoStream >= 0 && !avOptions.videoDisable()) {
         if (m_videoDecoder->open(m_avFormatCtx->streams[bestVideoStream], avOptions)) {
             logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_videoDecoder->name()).arg(bestVideoStream);
         }
     }
 
     int bestAudioStream = av_find_best_stream(m_avFormatCtx, AVMEDIA_TYPE_AUDIO, -1, bestVideoStream, nullptr, 0);
-    if (bestAudioStream >= 0) {
+    if (bestAudioStream >= 0 && !avOptions.audioDisable()) {
         if (m_audioDecoder->open(m_avFormatCtx->streams[bestAudioStream], avOptions)) {
             logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_audioDecoder->name()).arg(bestAudioStream);
         }

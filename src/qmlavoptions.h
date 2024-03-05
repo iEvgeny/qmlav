@@ -58,6 +58,8 @@ public:
     std::shared_ptr<QmlAVHWOutput> hwOutput() const;
     const AVCodec *avCodec(const AVStream *avStream) const;
     uint32_t demuxerTimeout() const;
+    bool videoDisable() const;
+    bool audioDisable() const;
 
 protected:
     template<typename T> T sTo(std::string value) const { return value; }
