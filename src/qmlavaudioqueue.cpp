@@ -21,18 +21,20 @@ bool QmlAVAudioQueue::isSequential() const
     return true;
 }
 
+#define QUEUE_LIMIT 0x7FFFFF  // 8 MB
 void QmlAVAudioQueue::push(const std::shared_ptr<QmlAVAudioFrame> frame)
 {
-    m_buffer.append(frame->data(), frame->dataSize());
+    // FIXME: Temporary solution.
+    // The reason for the inconsistency between producer and consumer data volumes for some formats is unclear.
+    if (m_buffer.size() < QUEUE_LIMIT) {
+        m_buffer.append(frame->data(), frame->dataSize());
+    } else {
+        logDebug() << "FIXME: Audio buffer queue exceeded 8 MB (Current size: " << m_buffer.size() << ")";
+    }
 }
 
 qint64 QmlAVAudioQueue::readData(char *data, qint64 maxSize)
 {
-    // This function might be called with a maxSize of 0, which can be used to perform post-reading operations.
-    if (maxSize == 0 && m_buffer.size() > 0xffffff) {
-        logWarning() << "Audio buffer queue exceeded 16 MB (Current size: " << m_buffer.size() << ")";
-    }
-
     qint64 size = qMin(static_cast<qint64>(m_buffer.size()), maxSize);
     memcpy(data, m_buffer.constData(), size);
     m_buffer.remove(0, size);
