@@ -92,15 +92,11 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
             
             if (m_videoSurface) {
                 if (!m_videoSurface->isActive()) {
-                    QVideoSurfaceFormat sf(qvf.size(), qvf.pixelFormat(), qvf.handleType());
-                    sf.setPixelAspectRatio(vf->sampleAspectRatio());
-                    sf.setYCbCrColorSpace(vf->colorSpace());
-                    logDebug() << "Starting with: "
-                               << "QVideoSurfaceFormat(" << sf.pixelFormat() << ", " << sf.frameSize()
-                               << ", viewport=" << sf.viewport() << ", pixelAspectRatio=" << sf.pixelAspectRatio()
-                               << ", handleType=" << sf.handleType() <<  ", yCbCrColorSpace=" << sf.yCbCrColorSpace()
-                               << ')';
-                    if (!m_videoSurface->start(sf)) {
+                    QVideoSurfaceFormat f(qvf.size(), qvf.pixelFormat(), qvf.handleType());
+                    f.setPixelAspectRatio(vf->sampleAspectRatio());
+                    f.setYCbCrColorSpace(vf->colorSpace());
+                    logDebug() << "Starting with: " << f;
+                    if (!m_videoSurface->start(f)) {
                         logCritical() << "Error starting the video surface presenting frames.";
                         return;
                     }
@@ -121,7 +117,9 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                 m_audioQueue.push(af);
             } else {
                 if (af->audioFormat().isValid()) {
-                    m_audioOutput = new QAudioOutput(m_audioDeviceInfo, af->audioFormat());
+                    auto f = af->audioFormat();
+                    logDebug() << "Starting with: " << f;
+                    m_audioOutput = new QAudioOutput(m_audioDeviceInfo, f);
                     m_audioOutput->setVolume(QAudio::convertVolume(m_volume,
                                                                    QAudio::LogarithmicVolumeScale,
                                                                    QAudio::LinearVolumeScale));
