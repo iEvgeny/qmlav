@@ -45,8 +45,6 @@ public:
     const AVStream *stream() const { return m_avStream; }
     int streamIndex() const { return m_avStream ? m_avStream->index : -1; }
 
-    double timeBaseUs() const;
-    int64_t startPts() const;
     int64_t clock() const { return m_clock; }
 
     void decodeAVPacket(const AVPacketPtr &avPacket);

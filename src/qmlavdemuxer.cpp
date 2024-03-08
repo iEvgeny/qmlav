@@ -8,12 +8,19 @@ extern "C" {
 QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     : QObject(parent)
     , m_realtime(false)
+    , m_startTime(0)
     , m_avFormatCtx(nullptr)
     , m_videoDecoder(std::make_shared<QmlAVVideoDecoder>())
     , m_audioDecoder(std::make_shared<QmlAVAudioDecoder>())
 {
     connect(m_videoDecoder.get(), &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
     connect(m_audioDecoder.get(), &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
+
+    QObject *obj = new QObject(this);
+    connect(this, &QmlAVDemuxer::frameFinished, obj, [this, obj] {
+        m_startTime = av_gettime();
+        obj->deleteLater();  // Destroy connection after first frame
+    });
 }
 
 QmlAVDemuxer::~QmlAVDemuxer()
@@ -105,11 +112,6 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
         emit mediaStatusChanged(QMediaPlayer::LoadedMedia);
         logDebug() << "Media loaded successfully!";
 
-        // Helper for syncing local playback
-        if (m_avFormatCtx->start_time_realtime == 0 || m_avFormatCtx->start_time_realtime == AV_NOPTS_VALUE) {
-            m_avFormatCtx->start_time_realtime = av_gettime();
-        }
-
         emit mediaStatusChanged(QMediaPlayer::BufferedMedia); // NOTE: We do not use buffering to reduce latency
     });
 }
@@ -170,7 +172,7 @@ void QmlAVDemuxer::start()
         // Primitive syncing for local playback
         if (!m_realtime) {
             // Waiting the frame display time
-            return m_avFormatCtx->start_time_realtime + clock - av_gettime();
+            return startTime() + clock - av_gettime();
         }
 
         return QmlAVLoopController::Continue;

@@ -31,6 +31,21 @@ QmlAVFrame::~QmlAVFrame()
     }
 }
 
+double QmlAVFrame::timeBaseUs() const
+{
+    return av_q2d(m_decoder->stream()->time_base) * 1E6;
+}
+
+// PTS of the first frame of the stream in presentation order
+int64_t QmlAVFrame::startPts() const
+{
+    if (m_decoder->stream()->start_time != AV_NOPTS_VALUE) {
+        return m_decoder->stream()->start_time * timeBaseUs();
+    }
+
+    return 0;
+}
+
 int64_t QmlAVFrame::pts() const
 {
     int64_t pts = 0;
@@ -40,7 +55,7 @@ int64_t QmlAVFrame::pts() const
         pts = m_avFrame->best_effort_timestamp;
     }
 
-    return pts * m_decoder->timeBaseUs();
+    return pts * timeBaseUs();
 }
 
 QmlAVVideoFrame::QmlAVVideoFrame(const AVFramePtr &avFrame)
@@ -147,32 +162,32 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
 #endif
 
     if (swr_init(swrCtx) == 0) {
-        m_dataSize = av_samples_get_buffer_size(nullptr,
+        int outSamples = swr_get_out_samples(swrCtx, avFrame->nb_samples);
+        av_samples_alloc(&m_data, NULL,
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(57, 24, 100)
-                                                avFrame->channels,
+                         avFrame->channels,
 #else
-                                                avFrame->ch_layout.nb_channels,
+                         avFrame->ch_layout.nb_channels,
 #endif
-                                                avFrame->nb_samples, outSampleFormat, 0);
-        // m_dataSize = avFrame->channels * avFrame->nb_samples * av_get_bytes_per_sample(outSampleFormat);
+                         outSamples, outSampleFormat, 0);
 
-        m_data = new uint8_t[m_dataSize];
+        auto converted = swr_convert(swrCtx,
+                                 &m_data,
+                                 outSamples,
+                                 const_cast<const uint8_t**>(avFrame->data),
+                                 avFrame->nb_samples);
 
-        swr_convert(swrCtx,
-                    &m_data,
-                    avFrame->nb_samples,
-                    const_cast<const uint8_t**>(avFrame->data),
-                    avFrame->nb_samples);
+        if (converted > 0) {
+            m_dataSize = avFrame->channels * converted * av_get_bytes_per_sample(outSampleFormat);
+        }
     }
 
-    if (swrCtx) {
-        swr_free(&swrCtx);
-    }
+    swr_free(&swrCtx);
 }
 
 QmlAVAudioFrame::~QmlAVAudioFrame()
 {
-    delete[] m_data;
+    av_freep(&m_data);
 }
 
 bool QmlAVAudioFrame::isValid() const

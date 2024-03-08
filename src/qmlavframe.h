@@ -28,6 +28,8 @@ public:
     virtual bool isValid() const = 0;
     AVFramePtr &avFrame() { return m_avFrame; }
     const AVFramePtr &avFrame() const { return m_avFrame; }
+    double timeBaseUs() const;
+    int64_t startPts() const;
     int64_t pts() const;
 
 protected:

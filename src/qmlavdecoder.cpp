@@ -104,22 +104,6 @@ QString QmlAVDecoder::name() const
     return name;
 }
 
-double QmlAVDecoder::timeBaseUs() const
-{
-    assert(m_avStream);
-    return av_q2d(m_avStream->time_base) * 1000000;
-}
-
-int64_t QmlAVDecoder::startPts() const
-{
-    assert(m_avStream);
-    if (m_avStream->start_time != AV_NOPTS_VALUE) {
-        return m_avStream->start_time * timeBaseUs();
-    }
-
-    return 0;
-}
-
 void QmlAVDecoder::decodeAVPacket(const AVPacketPtr &avPacket)
 {
     if (m_asyncMode) {
@@ -183,7 +167,7 @@ void QmlAVDecoder::worker(const AVPacketPtr &avPacket)
             if (auto f = frame(avFrame)) {
                 // NOTE: Not thread safe! Only makes sense in sync mode.
                 if (!m_asyncMode) {
-                    m_clock = f->pts() - startPts();
+                    m_clock = f->pts() - f->startPts();
                 }
 
                 m_counters.framesDecodedAdd();

@@ -118,7 +118,15 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
             auto af = std::static_pointer_cast<QmlAVAudioFrame>(frame);
 
             if (m_audioOutput) {
-                m_audioQueue.push(af);
+                // An alternative is to store the frame queue in QmlAVAudioQueue.
+                // In this case, a default mechanism for limiting frame queue length can be used.
+                int staleTime = 3E6;  // 3 sec.
+                int64_t realPresentTime = af->pts() - af->startPts() + m_demuxer->startTime();
+                if (realPresentTime + staleTime >= av_gettime()) {
+                    m_audioQueue.push(af);
+                } else {
+                    logDebug() << "Drop stale Audio frame";
+                }
             } else {
                 if (af->audioFormat().isValid()) {
                     auto f = af->audioFormat();
