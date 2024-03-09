@@ -161,15 +161,15 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
                         0, nullptr);
 #endif
 
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(57, 24, 100)
+        int channels = avFrame->channels;
+#else
+        int channels = avFrame->ch_layout.nb_channels;
+#endif
+
     if (swr_init(swrCtx) == 0) {
         int outSamples = swr_get_out_samples(swrCtx, avFrame->nb_samples);
-        av_samples_alloc(&m_data, NULL,
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(57, 24, 100)
-                         avFrame->channels,
-#else
-                         avFrame->ch_layout.nb_channels,
-#endif
-                         outSamples, outSampleFormat, 0);
+        av_samples_alloc(&m_data, NULL, channels, outSamples, outSampleFormat, 0);
 
         auto converted = swr_convert(swrCtx,
                                  &m_data,
@@ -178,7 +178,7 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
                                  avFrame->nb_samples);
 
         if (converted > 0) {
-            m_dataSize = avFrame->channels * converted * av_get_bytes_per_sample(outSampleFormat);
+            m_dataSize = channels * converted * av_get_bytes_per_sample(outSampleFormat);
         }
     }
 
