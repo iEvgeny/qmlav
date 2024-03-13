@@ -17,20 +17,24 @@ class QmlAVDecoder : public QObject, public std::enable_shared_from_this<QmlAVDe
     Q_OBJECT
 
     struct Counters {
-        int framesDecoded() const { return m_framesDecoded.load(std::memory_order_relaxed); }
-        void framesDecodedAdd() { m_framesDecoded.fetch_add(1, std::memory_order_relaxed); }
+        template <typename T, typename Super = std::atomic<T>>
+        struct RelaxedAtomic : Super {
+            constexpr static auto order = std::memory_order_relaxed;
 
-        int framesDiscarded() const { return m_framesDiscarded.load(std::memory_order_relaxed); }
-        void framesDiscardedAdd() { m_framesDiscarded.fetch_add(1, std::memory_order_relaxed); }
+            constexpr RelaxedAtomic(const T &other) noexcept : Super(other) { }
 
-        int frameQueueLength() const { return m_frameQueueLength.load(std::memory_order_relaxed); }
-        void frameQueueLengthAdd() { m_frameQueueLength.fetch_add(1, std::memory_order_relaxed); }
-        void frameQueueLengthSub() { m_frameQueueLength.fetch_sub(1, std::memory_order_relaxed); }
+            T get() const noexcept { return Super::load(order); }
+            operator T() const noexcept { return get(); }
 
-    private:
-        std::atomic<int> m_framesDecoded = 0;
-        std::atomic<int> m_framesDiscarded = 0;
-        std::atomic<int> m_frameQueueLength = 0;
+            T operator++(int) noexcept { return Super::fetch_add(1, order); }
+            T operator--(int) noexcept { return Super::fetch_sub(1, order); }
+            T operator++() = delete;
+            T operator--() = delete;
+        };
+
+        RelaxedAtomic<int> framesDecoded = 0;
+        RelaxedAtomic<int> framesDiscarded = 0;
+        RelaxedAtomic<int> frameQueueLength = 0;
     };
 
 public:

@@ -123,7 +123,7 @@ void QmlAVDecoder::setSkipFrameFlag()
     assert(m_avCodecCtx);
 
     const int limit = 30; // TODO: Implement dynamically limit
-    int length = m_counters.frameQueueLength();
+    int length = m_counters.frameQueueLength;
 
     auto exceeding = length - limit;
     if (exceeding > 0) {
@@ -167,7 +167,7 @@ void QmlAVDecoder::worker(const AVPacketPtr &avPacket)
         }
 
         if (m_avCodecCtx->skip_frame >= AVDISCARD_NONREF) {
-            m_counters.framesDiscardedAdd();
+            m_counters.framesDiscarded++;
         } else {
             avFrame->opaque = this;
 
@@ -177,7 +177,7 @@ void QmlAVDecoder::worker(const AVPacketPtr &avPacket)
                     m_clock = f->pts() - f->startPts();
                 }
 
-                m_counters.framesDecodedAdd();
+                m_counters.framesDecoded++;
                 emit frameFinished(f);
             }
         }

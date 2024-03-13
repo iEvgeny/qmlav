@@ -18,7 +18,7 @@ QmlAVFrame::QmlAVFrame(const AVFramePtr &avFrame, Type type)
     m_decoder = static_cast<QmlAVDecoder *>(m_avFrame->opaque)->weak_from_this().lock();
 
     if (m_decoder) {
-        m_decoder->counters().frameQueueLengthAdd();
+        m_decoder->counters().frameQueueLength++;
     }
 }
 
@@ -27,7 +27,7 @@ QmlAVFrame::QmlAVFrame(const QmlAVFrame &other) : QmlAVFrame(other.m_avFrame, ot
 QmlAVFrame::~QmlAVFrame()
 {
     if (m_decoder) {
-        m_decoder->counters().frameQueueLengthAdd();
+        m_decoder->counters().frameQueueLength--;
     }
 }
 

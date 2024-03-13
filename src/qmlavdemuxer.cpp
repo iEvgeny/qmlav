@@ -176,13 +176,11 @@ void QmlAVDemuxer::start()
 QVariantMap QmlAVDemuxer::stat() const
 {
     auto &vc = m_videoDecoder->counters();
-    QVariantMap data = {
-        { "framesDecoded", vc.framesDecoded() },
-        { "framesDiscarded", vc.framesDiscarded() },
-        { "frameQueueLength", vc.frameQueueLength() }
+    return {
+        { "framesDecoded", vc.framesDecoded.get() },
+        { "framesDiscarded", vc.framesDiscarded.get() },
+        { "frameQueueLength", vc.frameQueueLength.get() }
     };
-
-    return data;
 }
 
 bool QmlAVDemuxer::isRealtime(QUrl url) const
