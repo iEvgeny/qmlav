@@ -8,19 +8,12 @@ extern "C" {
 QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     : QObject(parent)
     , m_realtime(false)
-    , m_startTime(0)
     , m_avFormatCtx(nullptr)
     , m_videoDecoder(std::make_shared<QmlAVVideoDecoder>())
     , m_audioDecoder(std::make_shared<QmlAVAudioDecoder>())
 {
     connect(m_videoDecoder.get(), &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
     connect(m_audioDecoder.get(), &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
-
-    QObject *obj = new QObject(this);
-    connect(this, &QmlAVDemuxer::frameFinished, obj, [this, obj] {
-        m_startTime = av_gettime();
-        obj->deleteLater();  // Destroy connection after first frame
-    });
 }
 
 QmlAVDemuxer::~QmlAVDemuxer()
@@ -172,7 +165,8 @@ void QmlAVDemuxer::start()
         // Primitive syncing for local playback
         if (!m_realtime) {
             // Waiting the frame display time
-            return startTime() + clock - av_gettime();
+            auto startTime = m_videoDecoder->isOpen() ? m_videoDecoder->startTime() : m_audioDecoder->startTime();
+            return startTime + clock - av_gettime();
         }
 
         return QmlAVLoopController::Continue;

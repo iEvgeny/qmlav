@@ -34,8 +34,17 @@ class QmlAVDecoder : public QObject, public std::enable_shared_from_this<QmlAVDe
     };
 
 public:
-    QmlAVDecoder(QObject *parent = nullptr);
+    enum Type
+    {
+        TypeUnknown,
+        TypeVideo,
+        TypeAudio
+    };
+
+    QmlAVDecoder(QObject *parent = nullptr, Type type = TypeUnknown);
     virtual ~QmlAVDecoder();
+
+    Type type() const { return m_type; }
 
     bool asyncMode() const { return m_asyncMode; }
     void setAsyncMode(bool async);
@@ -46,6 +55,7 @@ public:
     int streamIndex() const { return m_avStream ? m_avStream->index : -1; }
 
     int64_t clock() const { return m_clock; }
+    int64_t startTime() const { return m_startTime; }
 
     void decodeAVPacket(const AVPacketPtr &avPacket);
 
@@ -70,8 +80,10 @@ protected:
     AVCodecContext *m_avCodecCtx;
 
 private:
+    Type m_type;
     bool m_asyncMode;
     int64_t m_clock;
+    int64_t m_startTime;
 
     const AVStream *m_avStream;
 

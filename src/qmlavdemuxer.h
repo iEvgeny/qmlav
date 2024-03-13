@@ -56,8 +56,6 @@ public:
     void load(const QUrl &url, const QmlAVOptions &avOptions);
     void start();
 
-    int64_t startTime() const { return m_startTime; }
-
     QVariantMap stat() const;
 
 signals:
@@ -72,7 +70,6 @@ protected:
     
 private:
     bool m_realtime;
-    int64_t m_startTime;
     AVFormatContext *m_avFormatCtx;
     QmlAVInterruptCallback m_interruptCallback;
 

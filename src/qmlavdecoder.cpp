@@ -7,13 +7,16 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/hwcontext.h>
+#include <libavutil/time.h>
 }
 
-QmlAVDecoder::QmlAVDecoder(QObject *parent)
+QmlAVDecoder::QmlAVDecoder(QObject *parent, Type type)
     : QObject(parent)
     , m_avCodecCtx(nullptr)
+    , m_type(type)
     , m_asyncMode(false)
     , m_clock(0)
+    , m_startTime(0)
     , m_avStream(nullptr)
     , m_threadTask(&QmlAVDecoder::worker)
 {
@@ -77,6 +80,7 @@ bool QmlAVDecoder::open(const AVStream *avStream, const QmlAVOptions &avOptions)
         logDebug() << "avcodec_open2() options ignored: " << QmlAV::Quote << opts.getString();
 
         m_avStream = avStream;
+        m_startTime = av_gettime();
 
         return true;
     }
@@ -119,12 +123,15 @@ void QmlAVDecoder::setSkipFrameFlag()
     assert(m_avCodecCtx);
 
     const int limit = 30; // TODO: Implement dynamically limit
-    auto length = m_counters.frameQueueLength();
+    int length = m_counters.frameQueueLength();
 
     auto exceeding = length - limit;
     if (exceeding > 0) {
         m_avCodecCtx->skip_frame = AVDISCARD_ALL;
-        logDebug() << QString("Exceeded %1 frames queue limit by %2 frame(s)!").arg(limit).arg(exceeding);
+        logDebug() << QString("Exceeded %1 %2 frames queue limit by %3 frame(s)!")
+                          .arg(limit)
+                          .arg(type() == TypeVideo ? "Video" : "Audio")
+                          .arg(exceeding);
     } else {
         m_avCodecCtx->skip_frame = AVDISCARD_DEFAULT;
     }
@@ -180,7 +187,7 @@ void QmlAVDecoder::worker(const AVPacketPtr &avPacket)
 }
 
 QmlAVVideoDecoder::QmlAVVideoDecoder(QObject *parent)
-    : QmlAVDecoder(parent)
+    : QmlAVDecoder(parent, TypeVideo)
 {
 }
 
@@ -262,7 +269,7 @@ const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::frame(const AVFramePtr &avF
 }
 
 QmlAVAudioDecoder::QmlAVAudioDecoder(QObject *parent)
-    : QmlAVDecoder(parent)
+    : QmlAVDecoder(parent, TypeAudio)
 {
 }
 

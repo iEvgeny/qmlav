@@ -27,18 +27,26 @@ QmlAVFrame::QmlAVFrame(const QmlAVFrame &other) : QmlAVFrame(other.m_avFrame, ot
 QmlAVFrame::~QmlAVFrame()
 {
     if (m_decoder) {
-        m_decoder->counters().frameQueueLengthSub();
+        m_decoder->counters().frameQueueLengthAdd();
     }
+}
+
+int64_t QmlAVFrame::startTime() const
+{
+    assert(m_decoder);
+    return m_decoder->startTime();
 }
 
 double QmlAVFrame::timeBaseUs() const
 {
+    assert(m_decoder);
     return av_q2d(m_decoder->stream()->time_base) * 1E6;
 }
 
 // PTS of the first frame of the stream in presentation order
 int64_t QmlAVFrame::startPts() const
 {
+    assert(m_decoder);
     if (m_decoder->stream()->start_time != AV_NOPTS_VALUE) {
         return m_decoder->stream()->start_time * timeBaseUs();
     }
