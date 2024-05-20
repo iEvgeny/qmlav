@@ -21,7 +21,7 @@ public:
 
     QmlAVFrame(const AVFramePtr &avFrame, Type type = TypeUnknown);
     QmlAVFrame(const QmlAVFrame &other);
-    virtual ~QmlAVFrame();
+    virtual ~QmlAVFrame() { }
 
     Type type() const { return m_type; }
 
@@ -64,15 +64,17 @@ public:
     QmlAVAudioFrame(const AVFramePtr &avFrame);
     ~QmlAVAudioFrame() override;
 
-    bool isValid() const override;
+    bool isValid() const override { return m_buffer && dataSize(); }
+
+    size_t dataSize() const { return m_dataSize - m_dataBegin; }
+    size_t readData(uint8_t *data, size_t maxSize);
 
     QAudioFormat audioFormat() const;
-    char *data() const { return reinterpret_cast<char *>(m_data); }
-    int dataSize() const { return m_dataSize; }
 
 private:
-    uint8_t *m_data;
-    int m_dataSize;
+    uint8_t *m_buffer;
+    size_t m_dataBegin;
+    size_t m_dataSize;
 };
 
 #endif // QMLAVFRAME_H

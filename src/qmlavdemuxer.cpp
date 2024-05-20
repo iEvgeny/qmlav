@@ -7,10 +7,9 @@ extern "C" {
 
 QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     : QObject(parent)
-    , m_realtime(false)
     , m_avFormatCtx(nullptr)
-    , m_videoDecoder(std::make_shared<QmlAVVideoDecoder>())
-    , m_audioDecoder(std::make_shared<QmlAVAudioDecoder>())
+    , m_videoDecoder(std::make_shared<QmlAVVideoDecoder>(m_clock))
+    , m_audioDecoder(std::make_shared<QmlAVAudioDecoder>(m_clock))
 {
     connect(m_videoDecoder.get(), &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
     connect(m_audioDecoder.get(), &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
@@ -58,9 +57,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
         return;
     }
 
-    m_realtime = isRealtime(url);
-    m_videoDecoder->setAsyncMode(m_realtime);
-    m_audioDecoder->setAsyncMode(m_realtime);
+    m_clock.realTime = avOptions.realTime().value_or(isRealTime(url));
 
     m_interruptCallback.setTimeout(avOptions.demuxerTimeout());
     m_avFormatCtx->interrupt_callback = m_interruptCallback;
@@ -105,7 +102,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
         emit mediaStatusChanged(QMediaPlayer::LoadedMedia);
         logDebug() << "Media loaded successfully!";
 
-        emit mediaStatusChanged(QMediaPlayer::BufferedMedia); // NOTE: We do not use buffering to reduce latency
+        emit mediaStatusChanged(QMediaPlayer::BufferedMedia); // NOTE: In common case, we don't use buffering to reduce latency
     });
 }
 
@@ -117,6 +114,12 @@ void QmlAVDemuxer::start()
 
     emit playbackStateChanged(QMediaPlayer::PlayingState);
 
+    auto stop = [this](QMediaPlayer::MediaStatus status = QMediaPlayer::InvalidMedia) {
+        emit mediaStatusChanged(status);
+        emit playbackStateChanged(QMediaPlayer::StoppedState);
+        return QmlAVLoopController::Break;
+    };
+
     m_demuxerThread = QmlAVThread::loop([=]() mutable -> QmlAVLoopController {
         int ret;
         AVPacketPtr avPacket;
@@ -124,49 +127,34 @@ void QmlAVDemuxer::start()
         m_loaderThread.waitForFinished();
 
         if (!isLoaded()) {
-            emit playbackStateChanged(QMediaPlayer::StoppedState);
-            return QmlAVLoopController::Interrupt;
+            return stop();
         }
-
-        // TODO:
-        int64_t clock = 0;
 
         m_interruptCallback.resetTimer();
 
         ret = av_read_frame(m_avFormatCtx, avPacket);
         if (ret < 0) {
             if (ret == AVERROR_EOF) {
-                logInfo() << "End of media";
-                emit mediaStatusChanged(QMediaPlayer::EndOfMedia);
-            } else {
-                if (ret != AVERROR_EXIT) {
-                    logWarning() << QString("Unable read frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
-                }
+                m_videoDecoder->waitForEmptyPacketQueue();
+                m_audioDecoder->waitForEmptyPacketQueue();
 
-                emit mediaStatusChanged(QMediaPlayer::StalledMedia);
+                logDebug() << "End of media";
+                return stop(QMediaPlayer::EndOfMedia);
             }
 
-            emit playbackStateChanged(QMediaPlayer::StoppedState);
-            return QmlAVLoopController::Interrupt;
+            if (ret != AVERROR_EXIT) {
+                logWarning() << QString("Unable read frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
+            }
+
+            return stop();
         }
 
         if (avPacket->stream_index == m_videoDecoder->streamIndex()) {
-            m_videoDecoder->decodeAVPacket(avPacket);
-            clock = m_videoDecoder->clock();
+            m_videoDecoder->decodeAVPacket(avPacket) || stop();
         } else if (avPacket->stream_index == m_audioDecoder->streamIndex()) {
-            m_audioDecoder->decodeAVPacket(avPacket);
-            if (!m_videoDecoder->isOpen()) {
-                clock = m_audioDecoder->clock();
-            }
+            m_audioDecoder->decodeAVPacket(avPacket) || stop();
         } else {
             return 1; // Minimal sleep time
-        }
-
-        // Primitive syncing for local playback
-        if (!m_realtime) {
-            // Waiting the frame display time
-            auto startTime = m_videoDecoder->isOpen() ? m_videoDecoder->startTime() : m_audioDecoder->startTime();
-            return startTime + clock - av_gettime();
         }
 
         return QmlAVLoopController::Continue;
@@ -176,14 +164,18 @@ void QmlAVDemuxer::start()
 QVariantMap QmlAVDemuxer::stat() const
 {
     auto &vc = m_videoDecoder->counters();
+    auto &ac = m_audioDecoder->counters();
     return {
-        { "framesDecoded", vc.framesDecoded.get() },
-        { "framesDiscarded", vc.framesDiscarded.get() },
-        { "frameQueueLength", vc.frameQueueLength.get() }
+        { "videoPacketsDecoded", vc.packetsDecoded.get() },
+        { "videoFramesDecoded", vc.framesDecoded.get() },
+        { "videoFramesDiscarded", vc.framesDiscarded.get() },
+        { "audioPacketsDecoded", ac.packetsDecoded.get() },
+        { "audioBuffersDecoded", ac.framesDecoded.get() },
+        { "audioBuffersDiscarded", ac.framesDiscarded.get() }
     };
 }
 
-bool QmlAVDemuxer::isRealtime(QUrl url) const
+bool QmlAVDemuxer::isRealTime(QUrl url) const
 {
     if (url.scheme() == "rtp"
             || url.scheme() == "srtp"

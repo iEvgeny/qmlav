@@ -10,7 +10,7 @@ QmlAVPlayer::QmlAVPlayer(QObject *parent)
     , m_autoPlay(false)
     , m_loops(1)
     , m_playbackState(QMediaPlayer::StoppedState)
-    , m_status(QMediaPlayer::UnknownMediaStatus)
+    , m_status(QMediaPlayer::NoMedia)
     , m_muted(false)
     , m_volume(0.0)
     , m_hasVideo(false)
@@ -79,17 +79,17 @@ void QmlAVPlayer::setVideoSurface(QAbstractVideoSurface *surface)
     if (m_videoSurface != surface) {
         stop();
     }
-    
+
     m_videoSurface = surface;
 }
 
 void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
 {
-    if (frame->isValid() && m_playbackState == QMediaPlayer::PlayingState) {
+    if (m_playbackState == QMediaPlayer::PlayingState) {
         if (frame->type() == QmlAVFrame::TypeVideo) {
             auto vf = std::static_pointer_cast<QmlAVVideoFrame>(frame);
             QVideoFrame qvf = *vf;
-            
+
             if (m_videoSurface) {
                 if (!m_videoSurface->isActive()) {
                     QVideoSurfaceFormat f(qvf.size(), qvf.pixelFormat(), qvf.handleType());
@@ -117,18 +117,9 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
         } else if (frame->type() == QmlAVFrame::TypeAudio) {
             auto af = std::static_pointer_cast<QmlAVAudioFrame>(frame);
 
-            if (m_audioOutput) {
-                // An alternative is to store the frame queue in QmlAVAudioQueue.
-                // In this case, a default mechanism for limiting frame queue length can be used.
-                int staleThreshold = 1E6;  // 1 sec.
-                int64_t realPresentTime = af->pts() - af->startPts() + af->startTime();
-                auto delta = realPresentTime - av_gettime();
-                if (delta + staleThreshold > 0) {
-                    m_audioQueue.push(af);
-                } else {
-                    logDebug() << "Drop stale Audio frame (stale time " << (delta / 1E6) << " sec.)";
-                }
-            } else {
+            m_audioDevice.enqueue(af);
+
+            if (!m_audioOutput) {
                 if (af->audioFormat().isValid()) {
                     auto f = af->audioFormat();
                     logDebug() << "Starting with: " << f;
@@ -138,7 +129,7 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                                                                    QAudio::LinearVolumeScale));
                     // NOTE: When use start() with a internal pointer to QIODevice we have a bug https://bugreports.qt.io/browse/QTBUG-60575 "infinite loop"
                     // at a volume other than 1.0f. In addition, the use of a buffer (as queue) improves sound quality.
-                    m_audioOutput->start(&m_audioQueue);
+                    m_audioOutput->start(&m_audioDevice);
                     setHasAudio(true);
                 }
             }
@@ -306,7 +297,6 @@ void QmlAVPlayer::stateMachine()
     } else if (m_playbackState == QMediaPlayer::StoppedState) {
         switch (m_status) {
         case QMediaPlayer::NoMedia:
-        case QMediaPlayer::StalledMedia:
         case QMediaPlayer::EndOfMedia:
         case QMediaPlayer::InvalidMedia: {
             // Internal demuxer interrupt

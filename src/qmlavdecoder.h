@@ -1,6 +1,10 @@
 #ifndef QMLAVDECODER_H
 #define QMLAVDECODER_H
 
+extern "C" {
+#include <libavutil/time.h>
+}
+
 #include <QVideoSurfaceFormat>
 #include <QAudioOutput>
 
@@ -16,28 +20,21 @@ class QmlAVDecoder : public QObject, public std::enable_shared_from_this<QmlAVDe
 {
     Q_OBJECT
 
-    struct Counters {
-        template <typename T, typename Super = std::atomic<T>>
-        struct RelaxedAtomic : Super {
-            constexpr static auto order = std::memory_order_relaxed;
+public:
+    struct Clock {
+        std::atomic_int64_t startTime = 0;
+        QmlAVRelaxedAtomic<bool> realTime = true;
+        std::atomic_int64_t currentPts = 0;
 
-            constexpr RelaxedAtomic(const T &other) noexcept : Super(other) { }
-
-            T get() const noexcept { return Super::load(order); }
-            operator T() const noexcept { return get(); }
-
-            T operator++(int) noexcept { return Super::fetch_add(1, order); }
-            T operator--(int) noexcept { return Super::fetch_sub(1, order); }
-            T operator++() = delete;
-            T operator--() = delete;
-        };
-
-        RelaxedAtomic<int> framesDecoded = 0;
-        RelaxedAtomic<int> framesDiscarded = 0;
-        RelaxedAtomic<int> frameQueueLength = 0;
+        static int64_t now() { return av_gettime_relative(); }
     };
 
-public:
+    struct Counters {
+        QmlAVRelaxedAtomic<uint32_t> packetsDecoded = 0;
+        QmlAVRelaxedAtomic<uint32_t> framesDecoded = 0;
+        QmlAVRelaxedAtomic<uint32_t> framesDiscarded = 0;
+    };
+
     enum Type
     {
         TypeUnknown,
@@ -45,23 +42,29 @@ public:
         TypeAudio
     };
 
-    QmlAVDecoder(QObject *parent = nullptr, Type type = TypeUnknown);
+    QmlAVDecoder(Clock &clock, QObject *parent = nullptr, Type type = TypeUnknown);
     virtual ~QmlAVDecoder();
 
     Type type() const { return m_type; }
+    QString typeName() const { return m_type == TypeVideo ? "Video" : "Audio"; }
 
-    bool asyncMode() const { return m_asyncMode; }
-    void setAsyncMode(bool async);
     bool open(const AVStream *avStream, const QmlAVOptions &avOptions);
     bool isOpen() const;
     QString name() const;
     const AVStream *stream() const { return m_avStream; }
     int streamIndex() const { return m_avStream ? m_avStream->index : -1; }
 
-    int64_t clock() const { return m_clock; }
-    int64_t startTime() const { return m_startTime; }
+    int64_t startTime() const;
 
-    void decodeAVPacket(const AVPacketPtr &avPacket);
+    bool decodeAVPacket(const AVPacketPtr &avPacket);
+
+    void waitForEmptyPacketQueue() { m_threadTask.argsQueue()->waitForEmpty(); }
+
+    int packetQueueLength() const { return m_threadTask.argsQueue()->length(); }
+    int frameQueueLength() const;
+
+    double frameQueueLimit() const { return m_frameQueueLimit.limit(); }
+    void setFrameQueueLimit(double limit) { m_frameQueueLimit.setLimit(limit); }
 
     auto &counters() { return m_counters; }
     const auto &counters() const { return m_counters; }
@@ -70,8 +73,7 @@ signals:
     void frameFinished(const std::shared_ptr<QmlAVFrame> frame);
 
 protected:
-    void setSkipFrameFlag();
-    void worker(const AVPacketPtr &avPacket);
+    QmlAVLoopController worker(const AVPacketPtr &avPacket);
 
     virtual bool initVideoDecoder([[maybe_unused]] const QmlAVOptions &avOptions) { return true; }
     virtual const std::shared_ptr<QmlAVFrame> frame([[maybe_unused]] const AVFramePtr &avFrame) const {
@@ -85,14 +87,14 @@ protected:
 
 private:
     Type m_type;
-    bool m_asyncMode;
-    int64_t m_clock;
-    int64_t m_startTime;
+    Clock &m_clock;
 
     const AVStream *m_avStream;
 
     QmlAVThreadTask<decltype(&QmlAVDecoder::worker)> m_threadTask;
-    QmlAVThreadLiveController<void> m_thread;
+    QmlAVThreadLiveController<QmlAVLoopController> m_thread;
+
+    QMLAVSoftLimit m_frameQueueLimit;
 
     Counters m_counters;
 };
@@ -103,7 +105,7 @@ class QmlAVVideoDecoder final : public QmlAVDecoder
     Q_OBJECT
 
 public:
-    QmlAVVideoDecoder(QObject *parent = nullptr);
+    QmlAVVideoDecoder(Clock &clock, QObject *parent = nullptr);
     ~QmlAVVideoDecoder() override;
 
     std::shared_ptr<QmlAVHWOutput> hwOutput() const { return m_hwOutput; }
@@ -124,7 +126,7 @@ class QmlAVAudioDecoder final : public QmlAVDecoder
     Q_OBJECT
 
 public:
-    QmlAVAudioDecoder(QObject *parent = nullptr);
+    QmlAVAudioDecoder(Clock &clock, QObject *parent = nullptr);
 
 protected:
     std::shared_ptr<QmlAVFrame> const frame(const AVFramePtr &avFrame) const override;

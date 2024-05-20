@@ -7,20 +7,24 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/hwcontext.h>
-#include <libavutil/time.h>
 }
 
-QmlAVDecoder::QmlAVDecoder(QObject *parent, Type type)
+#define MAX_PACKETS 64
+#define MAX_VIDEO_FRAMES 8
+#define MAX_AUDIO_FRAMES 64
+
+QmlAVDecoder::QmlAVDecoder(Clock &clock, QObject *parent, Type type)
     : QObject(parent)
     , m_avCodecCtx(nullptr)
     , m_type(type)
-    , m_asyncMode(false)
-    , m_clock(0)
-    , m_startTime(0)
+    , m_clock(clock)
     , m_avStream(nullptr)
     , m_threadTask(&QmlAVDecoder::worker)
 {
     qRegisterMetaType<std::shared_ptr<QmlAVFrame>>();
+
+    m_thread = m_threadTask.getLiveController();
+    m_threadTask.argsQueue()->resetWaitLimits(1, MAX_PACKETS);
 }
 
 QmlAVDecoder::~QmlAVDecoder()
@@ -28,20 +32,6 @@ QmlAVDecoder::~QmlAVDecoder()
     m_thread.requestInterruption(true);
 
     avcodec_free_context(&m_avCodecCtx);
-}
-
-// NOTE: Not thread safe!
-void QmlAVDecoder::setAsyncMode(bool async)
-{
-    if (m_asyncMode == async) {
-        return;
-    }
-
-    m_asyncMode = async;
-
-    if (async && !m_thread.isRunning()) {
-        m_thread = m_threadTask.getLiveController();
-    }
 }
 
 bool QmlAVDecoder::open(const AVStream *avStream, const QmlAVOptions &avOptions)
@@ -80,7 +70,6 @@ bool QmlAVDecoder::open(const AVStream *avStream, const QmlAVOptions &avOptions)
         logDebug() << "avcodec_open2() options ignored: " << QmlAV::Quote << opts.getString();
 
         m_avStream = avStream;
-        m_startTime = av_gettime();
 
         return true;
     }
@@ -90,105 +79,94 @@ bool QmlAVDecoder::open(const AVStream *avStream, const QmlAVOptions &avOptions)
 
 bool QmlAVDecoder::isOpen() const
 {
-    if (m_avCodecCtx && avcodec_is_open(m_avCodecCtx) > 0) {
+    return m_avCodecCtx && avcodec_is_open(m_avCodecCtx) && m_thread.isRunning();
+}
+
+QString QmlAVDecoder::name() const
+{
+    return isOpen() ? m_avCodecCtx->codec->name : "";
+}
+
+int64_t QmlAVDecoder::startTime() const
+{
+    if (m_clock.startTime == 0) {
+        m_clock.startTime = Clock::now();
+    }
+
+    return m_clock.startTime;
+}
+
+bool QmlAVDecoder::decodeAVPacket(const AVPacketPtr &avPacket)
+{
+    if (isOpen()) {
+        m_threadTask(this, avPacket);
         return true;
     }
 
     return false;
 }
 
-QString QmlAVDecoder::name() const
+int QmlAVDecoder::frameQueueLength() const
 {
-    QString name;
-
-    if (isOpen()) {
-        name = m_avCodecCtx->codec->name;
-    }
-
-    return name;
+    // Each frame contains a decoder instance during its lifetime
+    auto length = weak_from_this().use_count() - 1;
+    return std::max<int>(0, length);
 }
 
-void QmlAVDecoder::decodeAVPacket(const AVPacketPtr &avPacket)
+QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
 {
-    if (m_asyncMode) {
-        m_threadTask(this, avPacket);
-    } else {
-        worker(avPacket);
-    }
-}
-
-// TODO: Consider only video frames
-void QmlAVDecoder::setSkipFrameFlag()
-{
-    assert(m_avCodecCtx);
-
-    const int limit = 30; // TODO: Implement dynamically limit
-    int length = m_counters.frameQueueLength;
-
-    auto exceeding = length - limit;
-    if (exceeding > 0) {
-        m_avCodecCtx->skip_frame = AVDISCARD_ALL;
-        logDebug() << QString("Exceeded %1 %2 frames queue limit by %3 frame(s)!")
-                          .arg(limit)
-                          .arg(type() == TypeVideo ? "Video" : "Audio")
-                          .arg(exceeding);
-    } else {
-        m_avCodecCtx->skip_frame = AVDISCARD_DEFAULT;
-    }
-}
-
-void QmlAVDecoder::worker(const AVPacketPtr &avPacket)
-{
-    int ret = AVERROR_UNKNOWN;
     AVFramePtr avFrame;
 
     assert(m_avCodecCtx);
 
-    setSkipFrameFlag();
-
-    // Submit the packet to the decoder
-    ret = avcodec_send_packet(m_avCodecCtx, avPacket);
+    // Get available frame from the decoder
+    int ret = avcodec_receive_frame(m_avCodecCtx, avFrame);
     if (ret < 0) {
-        logWarning() << QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
-    }
-
-    // Get all the available frames from the decoder
-    while (ret >= 0) {
-        ret = avcodec_receive_frame(m_avCodecCtx, avFrame);
-
-        if (ret < 0) {
-            // Those two return values are special and mean there is no output
-            // frame available, but there were no errors during decoding.
-            if (ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
-                logWarning() << QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
-            }
-
-            break;
+        // Those two return values are special and mean there is no output
+        // frame available, but there were no errors during decoding.
+        if (ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
+            logWarning() << QString("Unable to read decoded frame: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
         }
 
-        if (m_avCodecCtx->skip_frame >= AVDISCARD_NONREF) {
-            m_counters.framesDiscarded++;
+        // Submit the packet to the decoder
+        ret = avcodec_send_packet(m_avCodecCtx, avPacket);
+        if (ret < 0) {
+            logCritical() << QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
+            return QmlAVLoopController::Break;
         } else {
+            m_counters.packetsDecoded++;
+        }
+
+        return QmlAVLoopController::Continue;
+    } else {
+        if (m_frameQueueLimit.addValue(frameQueueLength())) {
+
             avFrame->opaque = this;
 
-            if (auto f = frame(avFrame)) {
-                // NOTE: Not thread safe! Only makes sense in sync mode.
-                if (!m_asyncMode) {
-                    m_clock = f->pts() - f->startPts();
-                }
-
+            auto f = frame(avFrame);
+            if (f && f->isValid()) {
                 m_counters.framesDecoded++;
                 emit frameFinished(f);
-            }
-        }
 
-        avFrame.unref();
+                if (!m_clock.realTime) {
+                    // Primitive syncing for local playback
+                    auto presentTime = startTime() + f->pts() - f->startPts();
+                    return QmlAVLoopController(QmlAVLoopController::Retry, presentTime - Clock::now());
+                }
+            }
+        } else {
+            m_counters.framesDiscarded++;
+            logWarning() << QString("Exceeding %1 frame queue limit: ").arg(typeName()) << m_frameQueueLimit;
+        }
     }
+
+    return QmlAVLoopController::Retry;
 }
 
-QmlAVVideoDecoder::QmlAVVideoDecoder(QObject *parent)
-    : QmlAVDecoder(parent, TypeVideo)
+QmlAVVideoDecoder::QmlAVVideoDecoder(Clock &clock, QObject *parent)
+    : QmlAVDecoder(clock, parent, TypeVideo)
 {
+    setFrameQueueLimit(MAX_VIDEO_FRAMES);
 }
 
 QmlAVVideoDecoder::~QmlAVVideoDecoder()
@@ -268,9 +246,10 @@ const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::frame(const AVFramePtr &avF
     return std::make_shared<QmlAVVideoFrame>(avFrame);
 }
 
-QmlAVAudioDecoder::QmlAVAudioDecoder(QObject *parent)
-    : QmlAVDecoder(parent, TypeAudio)
+QmlAVAudioDecoder::QmlAVAudioDecoder(Clock &clock, QObject *parent)
+    : QmlAVDecoder(clock, parent, TypeAudio)
 {
+    setFrameQueueLimit(MAX_AUDIO_FRAMES);
 }
 
 const std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::frame(const AVFramePtr &avFrame) const

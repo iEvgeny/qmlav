@@ -6,6 +6,7 @@ extern "C" {
 }
 
 #include <memory>
+#include <optional>
 
 #include <QVariantMap>
 
@@ -60,6 +61,7 @@ public:
     uint32_t demuxerTimeout() const;
     bool videoDisable() const;
     bool audioDisable() const;
+    std::optional<bool> realTime() const;
 
 protected:
     template<typename T> T sTo(std::string value) const { return value; }

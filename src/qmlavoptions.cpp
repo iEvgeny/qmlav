@@ -147,6 +147,17 @@ bool QmlAVOptions::audioDisable() const
     return disable;
 }
 
+std::optional<bool> QmlAVOptions::realTime() const
+{
+    std::optional<bool> rt = std::nullopt;
+
+    find("rt", [&](bool value) {
+        rt = value;
+    });
+
+    return rt;
+}
+
 template<>
 bool QmlAVOptions::sTo<bool>(std::string value) const
 {

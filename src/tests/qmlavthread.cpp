@@ -104,7 +104,7 @@ TEST(QmlAVThread, LoopLambda)
             return QmlAVLoopController::Continue;
         }
 
-        return QmlAVLoopController::Interrupt;
+        return QmlAVLoopController::Break;
     };
 
     QmlAVThreadLiveController<QmlAVLoopController> c = QmlAVThread::loop(l);
@@ -149,6 +149,25 @@ TEST(QmlAVThread, QmlAVTask_Functor)
     EXPECT_EQ(c.result(), 42);
 
     c.requestInterruption(true);
+}
+
+TEST(QmlAVThread, QmlAVTask_Retry)
+{
+    int n = 0;
+
+    auto t = QmlAVThreadTask([&]([[maybe_unused]] std::string &s) -> QmlAVLoopController {
+        if (!s.empty() && ++n < std::stoi(s)) {
+            return QmlAVLoopController::Retry;
+        }
+
+        return QmlAVLoopController::Break;
+    });
+    t("42");
+
+    QmlAVThreadLiveController<QmlAVLoopController> c = t.getLiveController();
+    c.waitForFinished();
+
+    EXPECT_EQ(n, 42);
 }
 
 TEST(QmlAVThread, QmlAVTask_DemuxerDecoderThreadModel)

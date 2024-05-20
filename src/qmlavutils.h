@@ -23,7 +23,59 @@ extern "C" {
 #define av_err2str(errnum) \
     av_make_error_string(static_cast<char *>(alloca(AV_ERROR_MAX_STRING_SIZE)), AV_ERROR_MAX_STRING_SIZE, errnum)
 
-// Used to safely transfer data between threads and simplify memory management.
+class QMLAVSoftLimit {
+public:
+    QMLAVSoftLimit() : QMLAVSoftLimit(std::numeric_limits<decltype(m_limit)>::max()) { }
+    explicit QMLAVSoftLimit(double limit, double alpha = 0.01)
+        : m_average(0)
+        , m_alpha(alpha)
+        , m_limit(limit) { }
+
+    double limit() const { return m_limit; }
+    void setLimit(double limit) { m_limit = limit; }
+    bool addValue(double value) {
+        m_average = ema(value);
+        return m_average < m_limit;
+    }
+
+protected:
+    // EMA (Exponential Moving Average)
+    double ema(double value) {
+        return m_alpha * value + (1 - m_alpha) * m_average;
+    }
+
+private:
+    double m_average;
+    double m_alpha;
+    double m_limit;
+
+#ifndef QT_NO_DEBUG_STREAM
+    friend QDebug operator<<(QDebug dbg, const QMLAVSoftLimit &softLimit) {
+        return dbg.nospace() << "QMLAVSoftLimit(average=" << softLimit.m_average
+                             << ", alpha=" << softLimit.m_alpha
+                             << ", limit=" << softLimit.m_limit << ")";
+    }
+#endif
+};
+
+template<typename T, typename Super = std::atomic<T>>
+struct QmlAVRelaxedAtomic : Super {
+    constexpr static auto order = std::memory_order_relaxed;
+
+    constexpr QmlAVRelaxedAtomic(T other) noexcept : Super(other) { }
+
+    T get() const noexcept { return Super::load(order); }
+    operator T() const noexcept { return get(); }
+
+    T operator=(T i) noexcept { Super::store(i, order); return i; }
+    T operator++(int) noexcept { return Super::fetch_add(1, order); }
+    T operator--(int) noexcept { return Super::fetch_sub(1, order); }
+    T operator++() = delete;
+    T operator--() = delete;
+
+    // TODO: Implement other members as needed
+};
+
 template<typename T>
 class AVSmartPtr
 {

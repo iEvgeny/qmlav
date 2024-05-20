@@ -14,7 +14,7 @@ void QmlAVWorkerThread::run()
     while (!m_loopInterruptionRequested.load(std::memory_order_acquire)) {
         if (m_worker) {
             QmlAVLoopController ctrl = m_worker->invoke();
-            if (ctrl.isInterrupt()) {
+            if (ctrl.isBreak()) {
                 break;
             }
 

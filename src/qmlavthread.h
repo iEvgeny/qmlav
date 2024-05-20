@@ -10,26 +10,30 @@ class QmlAVLoopController
 {
 public:
     enum LoopControl {
-        Interrupt,
-        Continue
+        Break,
+        Continue,
+        Retry // Same as Continue, but without dequeue() for the Args Queue
     };
 
     QmlAVLoopController(int64_t sleep = 0) : QmlAVLoopController(Continue, sleep) { }
     QmlAVLoopController(LoopControl ctrl, int64_t sleep = 0)
     {
-        if (ctrl == Interrupt) {
-            m_ctrl = -1;
-        } else if (ctrl == Continue) {
-            m_ctrl = std::max<int64_t>(0, sleep);
+        m_ctrl = ctrl;
+        m_sleep = std::max<int64_t>(0, sleep);
+    }
+
+    bool isBreak() const { return m_ctrl == Break; }
+    bool isContinue() const { return m_ctrl == Continue; }
+    bool isRetry() const { return m_ctrl == Retry; }
+    void sleep() const {
+        if (m_sleep > 0) {
+            QThread::usleep(m_sleep);
         }
     }
 
-    bool isInterrupt() const { return m_ctrl < 0; }
-    bool isContinue() const { return m_ctrl >= 0; }
-    void sleep() const { QThread::usleep(m_ctrl); }
-
 private:
-    int64_t m_ctrl;
+    LoopControl m_ctrl;
+    int64_t m_sleep;
 };
 
 class QmlAVAbstractWorker
@@ -57,7 +61,7 @@ public:
     }
 
     virtual void requestInterruption() override {
-        m_results.setWaitValue(false);
+        m_results.resetWaitLimits();
     }
 
 protected:
@@ -90,22 +94,18 @@ public:
 protected:
     template <typename URef>
     QmlAVLoopController invokeImpl(URef &&args) {
+        auto data = std::tuple_cat(std::forward_as_tuple(m_callable), std::forward<URef>(args));
+
         if constexpr (std::is_same_v<Result, QmlAVLoopController>) {
-            static_assert(std::tuple_size_v<ArgsTuple> == 0,
-                          "Any arguments are not allowed for loops. Use the capture list for lambda functions.");
-            return std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, std::forward_as_tuple(m_callable));
+            return std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, data);
+        } else if constexpr (std::is_void_v<Result>) {
+            std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, data);
+            return QmlAVLoopController::Break;
         } else {
-            auto data = std::tuple_cat(std::forward_as_tuple(m_callable), std::forward<URef>(args));
-
-            if constexpr (std::is_void_v<Result>) {
-                std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, data);
-            } else {
-                auto result = std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, data);
-                this->setResult(std::move(result));
-            }
+            auto result = std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, data);
+            this->setResult(std::move(result));
+            return QmlAVLoopController::Continue;
         }
-
-        return QmlAVLoopController::Interrupt;
     }
 
 private:
@@ -143,17 +143,20 @@ public:
     virtual QmlAVLoopController invoke() override final {
         typename QmlAVWorkerInvokeImpl<Callable>::ArgsTuple args;
 
-        if (m_argsQueue->dequeue(args)) {
-            this->invokeImpl(args);
-            return QmlAVLoopController::Continue;
+        if (m_argsQueue->head(args)) {
+            auto ctrl =  this->invokeImpl(args);
+            if (!ctrl.isRetry()) {
+                m_argsQueue->dequeue();
+            }
+            return ctrl;
         }
 
-        return QmlAVLoopController::Interrupt;
+        return QmlAVLoopController::Break;
     }
 
     virtual void requestInterruption() override final {
         if (m_argsQueue) {
-            m_argsQueue->setWaitValue(false);
+            m_argsQueue->resetWaitLimits();
         }
 
         QmlAVWorkerInvokeImpl<Callable>::requestInterruption();
@@ -241,7 +244,8 @@ public:
         if (m_thread) {
             auto queue = static_cast<QmlAVQueue<Result> *>(m_thread->results());
             if (queue) {
-                queue->dequeue(data);
+                queue->head(data);
+                queue->dequeue();
             }
         }
 
@@ -258,8 +262,9 @@ public:
                 Result data = {};
 
                 do {
-                    if (queue->dequeue(data)) {
+                    if (queue->head(data)) {
                         list.push_back(std::move(data));
+                        queue->dequeue();
                     }
                 } while (!queue->isEmpty());
             }
@@ -294,10 +299,10 @@ public:
         : m_callable(std::forward<Callable>(callable))
         , m_argsQueue(std::make_shared<ArgsQueue>()) { }
 
-    int length() const { return m_argsQueue->size(); }
+    auto argsQueue() const { return m_argsQueue; }
 
     template<typename ...URef>
-    void operator () (URef &&...args) {
+    void operator() (URef &&...args) {
         m_argsQueue->enqueue(std::forward_as_tuple(args...));
     }
 

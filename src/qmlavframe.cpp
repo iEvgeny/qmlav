@@ -16,20 +16,9 @@ QmlAVFrame::QmlAVFrame(const AVFramePtr &avFrame, Type type)
     // NOTE: shared_from_this() throws an exception when the QmlAVDecoder destructor is executed,
     // while weak_from_this().lock() constructs an empty std::shared_ptr<QmlAVDecoder>.
     m_decoder = static_cast<QmlAVDecoder *>(m_avFrame->opaque)->weak_from_this().lock();
-
-    if (m_decoder) {
-        m_decoder->counters().frameQueueLength++;
-    }
 }
 
 QmlAVFrame::QmlAVFrame(const QmlAVFrame &other) : QmlAVFrame(other.m_avFrame, other.m_type) { }
-
-QmlAVFrame::~QmlAVFrame()
-{
-    if (m_decoder) {
-        m_decoder->counters().frameQueueLength--;
-    }
-}
 
 int64_t QmlAVFrame::startTime() const
 {
@@ -47,8 +36,10 @@ double QmlAVFrame::timeBaseUs() const
 int64_t QmlAVFrame::startPts() const
 {
     assert(m_decoder);
-    if (m_decoder->stream()->start_time != AV_NOPTS_VALUE) {
-        return m_decoder->stream()->start_time * timeBaseUs();
+
+    auto startPts = m_decoder->stream()->start_time;
+    if (startPts != AV_NOPTS_VALUE) {
+        return startPts * timeBaseUs();
     }
 
     return 0;
@@ -136,7 +127,8 @@ QmlAVVideoFrame::operator QVideoFrame() const
 
 QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
     : QmlAVFrame(avFrame, TypeAudio)
-    , m_data(nullptr)
+    , m_buffer(nullptr)
+    , m_dataBegin(0)
     , m_dataSize(0)
 {
     SwrContext *swrCtx = nullptr;
@@ -177,14 +169,13 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
 
     if (swr_init(swrCtx) == 0) {
         int outSamples = swr_get_out_samples(swrCtx, avFrame->nb_samples);
-        av_samples_alloc(&m_data, NULL, channels, outSamples, outSampleFormat, 0);
+        av_samples_alloc(&m_buffer, NULL, channels, outSamples, outSampleFormat, 0);
 
         auto converted = swr_convert(swrCtx,
-                                 &m_data,
-                                 outSamples,
-                                 const_cast<const uint8_t**>(avFrame->data),
-                                 avFrame->nb_samples);
-
+                                     &m_buffer,
+                                     outSamples,
+                                     const_cast<const uint8_t**>(avFrame->data),
+                                     avFrame->nb_samples);
         if (converted > 0) {
             m_dataSize = channels * converted * av_get_bytes_per_sample(outSampleFormat);
         }
@@ -195,16 +186,15 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
 
 QmlAVAudioFrame::~QmlAVAudioFrame()
 {
-    av_freep(&m_data);
+    av_freep(&m_buffer);
 }
 
-bool QmlAVAudioFrame::isValid() const
+size_t QmlAVAudioFrame::readData(uint8_t *data, size_t maxSize)
 {
-    if (m_data && m_dataSize) {
-        return true;
-    }
-
-    return false;
+    auto size = std::min(dataSize(), maxSize);
+    memcpy(data, m_buffer + m_dataBegin, size);
+    m_dataBegin += size;
+    return size;
 }
 
 QAudioFormat QmlAVAudioFrame::audioFormat() const

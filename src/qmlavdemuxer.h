@@ -64,18 +64,18 @@ signals:
     void frameFinished(const std::shared_ptr<QmlAVFrame> frame);
 
 protected:
-    bool isRealtime(QUrl url) const;
+    bool isRealTime(QUrl url) const;
     bool isLoaded() const { return m_videoDecoder->isOpen() || m_audioDecoder->isOpen(); }
     void initDecoders(const QmlAVOptions &avOptions);
     
 private:
-    bool m_realtime;
     AVFormatContext *m_avFormatCtx;
     QmlAVInterruptCallback m_interruptCallback;
 
     QmlAVThreadLiveController<void> m_loaderThread;
     QmlAVThreadLiveController<QmlAVLoopController> m_demuxerThread;
 
+    QmlAVAudioDecoder::Clock m_clock;
     // We need more control over the decoder's lifetime since it can be used in another thread
     std::shared_ptr<QmlAVVideoDecoder> m_videoDecoder;
     std::shared_ptr<QmlAVAudioDecoder> m_audioDecoder;

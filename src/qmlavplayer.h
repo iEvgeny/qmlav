@@ -8,7 +8,7 @@
 #include <QAudioOutput>
 
 #include "qmlavdemuxer.h"
-#include "qmlavaudioqueue.h"
+#include "qmlavaudiodevice.h"
 
 #define PROPERTY_WRITE_IMPL(type, name, write, notify) \
     void write(const type &var) { \
@@ -102,7 +102,7 @@ private:
     QAbstractVideoSurface *m_videoSurface;
     QTimer m_playTimer;
 
-    QmlAVAudioQueue m_audioQueue;
+    QmlAVAudioDevice m_audioDevice;
     QAudioDeviceInfo m_audioDeviceInfo;
     QAudioOutput *m_audioOutput;
 

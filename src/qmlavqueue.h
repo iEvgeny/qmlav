@@ -9,9 +9,11 @@ template <typename T>
 class QmlAVQueue
 {
 public:
-    QmlAVQueue() : m_waitValue(true) { }
+    QmlAVQueue()
+        : m_minLimit(1)
+        , m_maxLimit(0) { }
     virtual ~QmlAVQueue() {
-        setWaitValue(false);
+        resetWaitLimits();
     }
 
     QmlAVQueue(const QmlAVQueue &other) = delete;
@@ -32,34 +34,59 @@ public:
     template <typename URef>
     void enqueue(URef &&value) {
         {
-            std::scoped_lock lock(m_mutex);
+            std::unique_lock<std::mutex> lock(m_mutex);
+
+            m_producerCond.wait(lock, [&] {
+                // Executes in lock context
+                return m_maxLimit == 0 || m_queue.size() < m_maxLimit;
+            });
+
             m_queue.push(std::forward<T>(value));
         }
-        m_conditionVar.notify_one();
+        m_consumerCond.notify_one();
     }
-    bool dequeue(T &value) {
+    bool head(T &value) {
         std::unique_lock<std::mutex> lock(m_mutex);
 
-        m_conditionVar.wait(lock, [&] {
+        m_consumerCond.wait(lock, [&] {
             // Executes in lock context
-            return !m_queue.empty() || !m_waitValue;
+            return m_queue.size() >= m_minLimit;
         });
 
         if (!m_queue.empty()) {
             value = m_queue.front();
-            m_queue.pop();
             return true;
         }
 
         return false;
     }
-
-    void setWaitValue(bool wait) {
+    void dequeue() {
         {
             std::scoped_lock lock(m_mutex);
-            m_waitValue = wait;
+            if (!m_queue.empty()) {
+                m_queue.pop();
+            }
         }
-        m_conditionVar.notify_all();
+        m_producerCond.notify_all();
+    }
+
+    void waitForEmpty() {
+        std::unique_lock<std::mutex> lock(m_mutex);
+
+        m_producerCond.wait(lock, [&] {
+            // Executes in lock context
+            return m_queue.empty();
+        });
+    }
+
+    void resetWaitLimits(size_t min = 0, size_t max = 0) {
+        {
+            std::scoped_lock lock(m_mutex);
+            m_minLimit = min;
+            m_maxLimit = max;
+        }
+        m_producerCond.notify_all();
+        m_consumerCond.notify_all();
     }
 
     // NOTE: Be careful! Potential API race.
@@ -67,16 +94,17 @@ public:
         std::scoped_lock lock(m_mutex);
         return m_queue.empty();
     }
-    int size() const {
+    int length() const {
         std::scoped_lock lock(m_mutex);
         return m_queue.size();
     }
 
 private:
     mutable std::mutex m_mutex;
-    std::condition_variable m_conditionVar;
     std::queue<T> m_queue;
-    bool m_waitValue;
+    std::condition_variable m_producerCond;
+    std::condition_variable m_consumerCond;
+    size_t m_minLimit, m_maxLimit;
 };
 
 #endif // QMLAVQUEUE_H
