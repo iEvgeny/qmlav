@@ -58,6 +58,7 @@ public:
 
     bool decodeAVPacket(const AVPacketPtr &avPacket);
 
+    void requestInterruption(bool wait = false) { m_thread.requestInterruption(wait); }
     void waitForEmptyPacketQueue() { m_threadTask.argsQueue()->waitForEmpty(); }
 
     int packetQueueLength() const { return m_threadTask.argsQueue()->length(); }

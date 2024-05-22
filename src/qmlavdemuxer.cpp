@@ -19,6 +19,10 @@ QmlAVDemuxer::~QmlAVDemuxer()
 {
     m_interruptCallback.requestAVInterrupt();
 
+    // Guarantee that dtor of decoders is called in place, not in the QmlAVFrame
+    m_videoDecoder->requestInterruption(true);
+    m_audioDecoder->requestInterruption(true);
+
     m_loaderThread.requestInterruption(true);
     m_demuxerThread.requestInterruption(true);
 
