@@ -191,6 +191,7 @@ public:
         std::scoped_lock lock(m_mutex);
         return m_running;
     }
+    void requestInterruption();
 
     void *results() {
         if (m_worker) {
@@ -199,7 +200,6 @@ public:
 
         return nullptr;
     }
-    void requestInterruption();
 
 protected:
     void run();
