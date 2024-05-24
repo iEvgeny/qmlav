@@ -58,11 +58,11 @@ bool QmlAVVideoBuffer::planeSizes(int size[]) const
                                           0, // Initial value for data[0]
                                           m_videoFrame.avFrame()->linesize);
     if (dataSize > 0) {
-        for (int i = 0;; ++i) {
-            if (i < QMLAV_NUM_DATA_POINTERS && data[i + 1]) {
-                size[i] = data[i + 1] - data[i];
+        for (int i = 1;; ++i) {
+            if (i < QMLAV_NUM_DATA_POINTERS && data[i]) {
+                size[i - 1] = data[i] - data[i - 1];
             } else {
-                size[i] = reinterpret_cast<uint8_t *>(dataSize) - data[i];
+                size[i - 1] = reinterpret_cast<uint8_t *>(dataSize) - data[i - 1];
                 break;
             }
         }
