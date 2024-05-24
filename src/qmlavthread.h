@@ -1,7 +1,7 @@
 #ifndef QMLAVTHREAD_H
 #define QMLAVTHREAD_H
 
-#include <QThread>
+#include <thread>
 
 #include "qmlavqueue.h"
 #include "qmlavutils.h"
@@ -27,7 +27,7 @@ public:
     bool isRetry() const { return m_ctrl == Retry; }
     void sleep() const {
         if (m_sleep > 0) {
-            QThread::usleep(m_sleep);
+            std::this_thread::sleep_for(std::chrono::microseconds(m_sleep));
         }
     }
 
@@ -166,15 +166,31 @@ private:
     std::shared_ptr<ArgsQueue> m_argsQueue;
 };
 
-class QmlAVWorkerThread : public QThread
+class QmlAVWorkerThread
 {
-    Q_OBJECT
-
 public:
     QmlAVWorkerThread(std::unique_ptr<QmlAVAbstractWorker> worker)
-        : QThread()
-        , m_worker(std::move(worker))
-        , m_loopInterruptionRequested(false) { }
+        : m_running(false)
+        , m_loopInterruptionRequested(false)
+        , m_worker(std::move(worker)) { }
+
+    void start() {
+        if (setRunning(true)) {
+            std::thread(&QmlAVWorkerThread::run, this).detach();
+        }
+    }
+    void wait() {
+        std::unique_lock<std::mutex> lock(m_mutex);
+
+        m_waitCond.wait(lock, [&] {
+            // Executes in lock context
+            return !m_running;
+        });
+    }
+    bool isRunning() const {
+        std::scoped_lock lock(m_mutex);
+        return m_running;
+    }
 
     void *results() {
         if (m_worker) {
@@ -186,11 +202,26 @@ public:
     void requestInterruption();
 
 protected:
-    void run() override final;
+    void run();
+    bool setRunning(bool other) {
+        std::scoped_lock lock(m_mutex);
+
+        if (m_running == other) {
+            return false;
+        }
+
+        m_running = other;
+        return true;
+    }
 
 private:
-    std::unique_ptr<QmlAVAbstractWorker> m_worker;
+    mutable std::mutex m_mutex;
+    std::condition_variable m_waitCond;
+
+    bool m_running;
     std::atomic<bool> m_loopInterruptionRequested;
+
+    std::unique_ptr<QmlAVAbstractWorker> m_worker;
 };
 
 // NOTE: For use from a single thread only!

@@ -11,16 +11,18 @@ void QmlAVWorkerThread::requestInterruption()
 
 void QmlAVWorkerThread::run()
 {
+    assert(m_worker);
+
     while (!m_loopInterruptionRequested.load(std::memory_order_acquire)) {
-        if (m_worker) {
-            QmlAVLoopController ctrl = m_worker->invoke();
-            if (ctrl.isBreak()) {
-                break;
-            }
-
-            QThread::yieldCurrentThread();
-
-            ctrl.sleep();
+        QmlAVLoopController ctrl = m_worker->invoke();
+        if (ctrl.isBreak()) {
+            break;
         }
+
+        std::this_thread::yield();
+        ctrl.sleep();
     }
+
+    setRunning(false);
+    m_waitCond.notify_all();
 }
