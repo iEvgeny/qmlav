@@ -103,7 +103,6 @@ private:
     QTimer m_playTimer;
 
     QmlAVAudioDevice m_audioDevice;
-    QAudioDeviceInfo m_audioDeviceInfo;
     QAudioOutput *m_audioOutput;
 
     QVariantMap m_avOptions;

@@ -18,8 +18,6 @@ QmlAVPlayer::QmlAVPlayer(QObject *parent)
 {
     qRegisterMetaType<QList<QVideoFrame::PixelFormat>>();
 
-    m_audioDeviceInfo = QAudioDeviceInfo::defaultOutputDevice();
-
     m_playTimer.setSingleShot(true);
     connect(&m_playTimer, &QTimer::timeout, this, &QmlAVPlayer::play);
 }
@@ -123,7 +121,8 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                 if (af->audioFormat().isValid()) {
                     auto f = af->audioFormat();
                     logDebug() << "Starting with: " << f;
-                    m_audioOutput = new QAudioOutput(m_audioDeviceInfo, f);
+                    auto outputDevice = QAudioDeviceInfo::defaultOutputDevice();
+                    m_audioOutput = new QAudioOutput(outputDevice, f);
                     m_audioOutput->setVolume(QAudio::convertVolume(m_volume,
                                                                    QAudio::LogarithmicVolumeScale,
                                                                    QAudio::LinearVolumeScale));
