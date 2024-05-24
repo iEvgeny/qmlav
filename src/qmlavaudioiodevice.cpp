@@ -1,22 +1,22 @@
-#include "qmlavaudiodevice.h"
+#include "qmlavaudioiodevice.h"
 
-QmlAVAudioDevice::QmlAVAudioDevice(QObject *parent)
+QmlAVAudioIODevice::QmlAVAudioIODevice(QObject *parent)
     : QIODevice(parent)
 {
     open(QIODevice::ReadOnly);
 }
 
-QmlAVAudioDevice::~QmlAVAudioDevice()
+QmlAVAudioIODevice::~QmlAVAudioIODevice()
 {
     close();
 }
 
-void QmlAVAudioDevice::enqueue(const std::shared_ptr<QmlAVAudioFrame> frame)
+void QmlAVAudioIODevice::enqueue(const std::shared_ptr<QmlAVAudioFrame> frame)
 {
     m_frames.push_back(frame);
 }
 
-qint64 QmlAVAudioDevice::readData(char *data, qint64 maxSize)
+qint64 QmlAVAudioIODevice::readData(char *data, qint64 maxSize)
 {
     size_t size = 0;
 

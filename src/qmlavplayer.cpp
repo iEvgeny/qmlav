@@ -115,7 +115,7 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
         } else if (frame->type() == QmlAVFrame::TypeAudio) {
             auto af = std::static_pointer_cast<QmlAVAudioFrame>(frame);
 
-            m_audioDevice.enqueue(af);
+            m_audioIODevice.enqueue(af);
 
             if (!m_audioOutput) {
                 if (af->audioFormat().isValid()) {
@@ -128,7 +128,7 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                                                                    QAudio::LinearVolumeScale));
                     // NOTE: When use start() with a internal pointer to QIODevice we have a bug https://bugreports.qt.io/browse/QTBUG-60575 "infinite loop"
                     // at a volume other than 1.0f. In addition, the use of a buffer (as queue) improves sound quality.
-                    m_audioOutput->start(&m_audioDevice);
+                    m_audioOutput->start(&m_audioIODevice);
                     setHasAudio(true);
                 }
             }

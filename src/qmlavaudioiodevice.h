@@ -1,5 +1,5 @@
-#ifndef QMLAVAUDIODEVICE_H
-#define QMLAVAUDIODEVICE_H
+#ifndef QMLAVAUDIOIODEVICE_H
+#define QMLAVAUDIOIODEVICE_H
 
 #include <QtCore>
 
@@ -7,13 +7,13 @@
 
 #define PA_PREBUF_SIZE 32768
 
-class QmlAVAudioDevice final : public QIODevice
+class QmlAVAudioIODevice final : public QIODevice
 {
     Q_OBJECT
 
 public:
-    QmlAVAudioDevice(QObject *parent = nullptr);
-    ~QmlAVAudioDevice() override;
+    QmlAVAudioIODevice(QObject *parent = nullptr);
+    ~QmlAVAudioIODevice() override;
 
     // In this combination, these two functions set the size of the PulseAudio buffer.
     // PulseAudio prebuffering determines the tradeoff between playback latency and audio quality.
@@ -30,4 +30,4 @@ private:
     std::deque<std::shared_ptr<QmlAVAudioFrame>> m_frames;
 };
 
-#endif // QMLAVAUDIODEVICE_H
+#endif // QMLAVAUDIOIODEVICE_H

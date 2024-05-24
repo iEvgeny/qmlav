@@ -15,7 +15,7 @@ set(QMLAV_FILES
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavframe.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavframe.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavvideobuffer.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavvideobuffer.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavhwoutput.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavhwoutput.h
-    ${CMAKE_CURRENT_LIST_DIR}/src/qmlavaudiodevice.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavaudiodevice.h
+    ${CMAKE_CURRENT_LIST_DIR}/src/qmlavaudioiodevice.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavaudioiodevice.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavplayer.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavplayer.h
 )
 
