@@ -16,7 +16,12 @@ void QmlAVAudioIODevice::enqueue(const std::shared_ptr<QmlAVAudioFrame> frame)
     m_frames.push_back(frame);
 }
 
-qint64 QmlAVAudioIODevice::readData(char *data, qint64 maxSize)
+void QmlAVAudioIODevice::clear()
+{
+    m_frames.clear();
+}
+
+qint64 QmlAVAudioIODevice::readData([[maybe_unused]] char *data, [[maybe_unused]] qint64 maxSize)
 {
     size_t size = 0;
 

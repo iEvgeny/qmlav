@@ -118,8 +118,6 @@ protected:
 
 private:
     std::shared_ptr<QmlAVHWOutput> m_hwOutput;
-
-    friend class QmlAVDecoder;
 };
 
 class QmlAVAudioDecoder final : public QmlAVDecoder

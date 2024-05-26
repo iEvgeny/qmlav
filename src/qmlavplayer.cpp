@@ -67,6 +67,8 @@ void QmlAVPlayer::stop()
         m_audioOutput = nullptr;
     }
 
+    m_audioIODevice.clear();
+
     setPlaybackState(QMediaPlayer::StoppedState);
     setHasVideo(false);
     setHasAudio(false);

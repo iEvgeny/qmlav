@@ -21,6 +21,7 @@ public:
     bool isSequential() const override { return true; }
 
     void enqueue(const std::shared_ptr<QmlAVAudioFrame> frame);
+    void clear();
 
 protected:
     qint64 readData(char *data, qint64 maxSize) override;

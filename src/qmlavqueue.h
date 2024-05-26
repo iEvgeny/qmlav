@@ -12,9 +12,7 @@ public:
     QmlAVQueue()
         : m_minLimit(1)
         , m_maxLimit(0) { }
-    virtual ~QmlAVQueue() {
-        resetWaitLimits();
-    }
+    virtual ~QmlAVQueue() { resetWaitLimits(); }
 
     QmlAVQueue(const QmlAVQueue &other) = delete;
     QmlAVQueue(QmlAVQueue &&other) {
@@ -101,9 +99,10 @@ public:
 
 private:
     mutable std::mutex m_mutex;
-    std::queue<T> m_queue;
     std::condition_variable m_producerCond;
     std::condition_variable m_consumerCond;
+
+    std::queue<T> m_queue;
     size_t m_minLimit, m_maxLimit;
 };
 

@@ -201,7 +201,7 @@ bool QmlAVVideoDecoder::initVideoDecoder(const QmlAVOptions &avOptions)
             return false;
         }
 
-        // NOTE: This field should be set before avcodec_open2() is called and must not be written to thereafter.
+        // NOTE: This field should be set before avcodec_open2() is called and must not be written to thereafter
         m_avCodecCtx->hw_device_ctx = av_buffer_ref(avHWDeviceCtx);
 
         av_buffer_unref(&avHWDeviceCtx);
