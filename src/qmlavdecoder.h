@@ -23,8 +23,8 @@ class QmlAVDecoder : public QObject, public std::enable_shared_from_this<QmlAVDe
 public:
     struct Clock {
         std::atomic_int64_t startTime = 0;
-        QmlAVRelaxedAtomic<bool> realTime = true;
-        std::atomic_int64_t currentPts = 0;
+        std::atomic_bool realTime = true;
+        std::atomic_int64_t lastPts = 0;
 
         static int64_t now() { return av_gettime_relative(); }
     };
@@ -35,8 +35,7 @@ public:
         QmlAVRelaxedAtomic<uint32_t> framesDiscarded = 0;
     };
 
-    enum Type
-    {
+    enum Type {
         TypeUnknown,
         TypeVideo,
         TypeAudio
@@ -64,9 +63,6 @@ public:
     int packetQueueLength() const { return m_threadTask.argsQueue()->length(); }
     int frameQueueLength() const;
 
-    double frameQueueLimit() const { return m_frameQueueLimit.limit(); }
-    void setFrameQueueLimit(double limit) { m_frameQueueLimit.setLimit(limit); }
-
     auto &counters() { return m_counters; }
     const auto &counters() const { return m_counters; }
 
@@ -85,6 +81,7 @@ protected:
 
 protected:
     AVCodecContext *m_avCodecCtx;
+    QMLAVSoftLimit<double> m_frameQueueLimit;
 
 private:
     Type m_type;
@@ -94,8 +91,6 @@ private:
 
     QmlAVThreadTask<decltype(&QmlAVDecoder::worker)> m_threadTask;
     QmlAVThreadLiveController<QmlAVLoopController> m_thread;
-
-    QMLAVSoftLimit m_frameQueueLimit;
 
     Counters m_counters;
 };

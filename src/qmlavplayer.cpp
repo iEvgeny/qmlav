@@ -117,7 +117,13 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
         } else if (frame->type() == QmlAVFrame::TypeAudio) {
             auto af = std::static_pointer_cast<QmlAVAudioFrame>(frame);
 
-            m_audioIODevice.enqueue(af);
+            auto threshold = 300'000; // 0,3 sec.
+            auto queueingTime = m_demuxer->clock().lastPts.load(std::memory_order_acquire) - af->pts();
+            if (queueingTime < threshold) {
+                m_audioIODevice.enqueue(af);
+            } else {
+                logDebug() << "Drop stale Audio frame";
+            }
 
             if (!m_audioOutput) {
                 if (af->audioFormat().isValid()) {

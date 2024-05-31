@@ -56,6 +56,8 @@ public:
     void load(const QUrl &url, const QmlAVOptions &avOptions);
     void start();
 
+    const auto &clock() const { return m_clock; }
+
     QVariantMap stat() const;
 
 signals:
