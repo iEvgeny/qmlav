@@ -19,12 +19,12 @@ QmlAVDemuxer::~QmlAVDemuxer()
 {
     m_interruptCallback.requestAVInterrupt();
 
+    m_loaderThread.requestInterruption(true);
+    m_demuxerThread.requestInterruption(true);
+
     // Serialization point for decoders dtor's
     m_videoDecoder->requestInterruption(true);
     m_audioDecoder->requestInterruption(true);
-
-    m_loaderThread.requestInterruption(true);
-    m_demuxerThread.requestInterruption(true);
 
     avformat_close_input(&m_avFormatCtx);
 }
