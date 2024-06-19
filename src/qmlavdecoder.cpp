@@ -131,8 +131,7 @@ QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
         // Submit the packet to the decoder
         ret = avcodec_send_packet(m_avCodecCtx, avPacket);
         if (ret < 0) {
-            logCritical() << QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
-            return QmlAVLoopController::Break;
+            logWarning() << QString("Unable send packet to decoder: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
         } else {
             m_counters.packetsDecoded++;
         }
