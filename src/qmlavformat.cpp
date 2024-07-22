@@ -167,19 +167,19 @@ QmlAVColorSpace::operator QVideoSurfaceFormat::YCbCrColorSpace() const
 QAudioFormat::SampleType QmlAVSampleFormat::audioFormatFromAVFormat(AVSampleFormat sampleFormat)
 {
     QMap<AVSampleFormat, QAudioFormat::SampleType> sampleFormatMap {
-        {AV_SAMPLE_FMT_U8, QAudioFormat::UnSignedInt},  // unsigned 8 bits
+        {AV_SAMPLE_FMT_U8, QAudioFormat::UnSignedInt},  // unsigned 8 bits, packed or interleaved
         {AV_SAMPLE_FMT_S16, QAudioFormat::SignedInt},   // signed 16 bits
         {AV_SAMPLE_FMT_S32, QAudioFormat::SignedInt},   // signed 32 bits
         {AV_SAMPLE_FMT_FLT, QAudioFormat::Float},       // float
         {AV_SAMPLE_FMT_DBL, QAudioFormat::Float}/*,     // double
 
         {AV_SAMPLE_FMT_U8P, },                          // unsigned 8 bits, planar
-        {AV_SAMPLE_FMT_S16P, },                         // signed 16 bits, planar
-        {AV_SAMPLE_FMT_S32P, },                         // signed 32 bits, planar
-        {AV_SAMPLE_FMT_FLTP, },                         // float, planar
-        {AV_SAMPLE_FMT_DBLP, },                         // double, planar
+        {AV_SAMPLE_FMT_S16P, },                         // signed 16 bits
+        {AV_SAMPLE_FMT_S32P, },                         // signed 32 bits
+        {AV_SAMPLE_FMT_FLTP, },                         // float
+        {AV_SAMPLE_FMT_DBLP, },                         // double
         {AV_SAMPLE_FMT_S64, },                          // signed 64 bits
-        {AV_SAMPLE_FMT_S64P, }                          // signed 64 bits, planar*/
+        {AV_SAMPLE_FMT_S64P, }                          // signed 64 bits*/
     };
 
     return sampleFormatMap.value(sampleFormat, QAudioFormat::Unknown);

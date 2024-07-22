@@ -13,6 +13,7 @@ set(QMLAV_FILES
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavdecoder.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavdecoder.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavformat.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavformat.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavframe.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavframe.h
+    ${CMAKE_CURRENT_LIST_DIR}/src/qmlavresampler.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavresampler.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavvideobuffer.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavvideobuffer.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavhwoutput.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavhwoutput.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavaudioiodevice.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavaudioiodevice.h

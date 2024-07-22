@@ -9,6 +9,7 @@ extern "C" {
 #include <QAudioOutput>
 
 #include "qmlavthread.h"
+#include "qmlavresampler.h"
 
 struct AVCodecContext;
 
@@ -122,8 +123,13 @@ class QmlAVAudioDecoder final : public QmlAVDecoder
 public:
     QmlAVAudioDecoder(Clock &clock, QObject *parent = nullptr);
 
+    auto &resampler() { return m_resampler; }
+
 protected:
     std::shared_ptr<QmlAVFrame> const frame(const AVFramePtr &avFrame) const override;
+
+private:
+    QmlAVResampler m_resampler;
 };
 
 #endif // QMLAVDECODER_H

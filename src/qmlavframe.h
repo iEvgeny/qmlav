@@ -7,7 +7,8 @@
 
 #include "qmlavutils.h"
 #include "qmlavformat.h"
-#include "qmlavdecoder.h"
+
+class QmlAVDecoder;
 
 class QmlAVFrame
 {
@@ -64,10 +65,14 @@ public:
     QmlAVAudioFrame(const AVFramePtr &avFrame);
     ~QmlAVAudioFrame() override;
 
-    bool isValid() const override { return m_buffer && dataSize(); }
+    bool isValid() const override;
 
     size_t dataSize() const { return m_dataSize - m_dataBegin; }
     size_t readData(uint8_t *data, size_t maxSize);
+
+    AVSampleFormat sampleFormat() const;
+    int sampleRate() const { return avFrame()->sample_rate; }
+    int channelCount() const;
 
     QAudioFormat audioFormat() const;
 

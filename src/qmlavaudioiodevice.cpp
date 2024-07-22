@@ -1,4 +1,5 @@
 #include "qmlavaudioiodevice.h"
+#include "qmlavframe.h"
 
 QmlAVAudioIODevice::QmlAVAudioIODevice(QObject *parent)
     : QIODevice(parent)

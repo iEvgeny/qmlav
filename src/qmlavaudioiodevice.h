@@ -1,11 +1,13 @@
 #ifndef QMLAVAUDIOIODEVICE_H
 #define QMLAVAUDIOIODEVICE_H
 
+#include <deque>
+
 #include <QtCore>
 
-#include "qmlavframe.h"
-
 #define PA_PREBUF_SIZE 32768
+
+class QmlAVAudioFrame;
 
 class QmlAVAudioIODevice final : public QIODevice
 {

@@ -7,6 +7,7 @@
 #include <QVideoSurfaceFormat>
 #include <QAudioOutput>
 
+#include "qmlavframe.h"
 #include "qmlavdemuxer.h"
 #include "qmlavaudioiodevice.h"
 

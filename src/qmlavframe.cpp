@@ -1,10 +1,10 @@
 #include "qmlavframe.h"
 #include "qmlavdecoder.h"
+#include "qmlavutils.h"
 #include "qmlavvideobuffer.h"
 
 extern "C" {
 #include <libavutil/imgutils.h>
-#include <libswresample/swresample.h>
 }
 
 QmlAVFrame::QmlAVFrame(const AVFramePtr &avFrame, Type type)
@@ -131,62 +131,20 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
     , m_dataBegin(0)
     , m_dataSize(0)
 {
-    SwrContext *swrCtx = nullptr;
-
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(57, 24, 100)
-    int64_t channelLayout = avFrame->channel_layout != 0 ? avFrame->channel_layout : av_get_default_channel_layout(avFrame->channels);
-#else
-    AVChannelLayout channelLayout =avFrame->ch_layout;
-#endif
-
-    AVSampleFormat outSampleFormat = av_get_packed_sample_fmt(static_cast<AVSampleFormat>(avFrame->format));
-
-#if LIBSWRESAMPLE_VERSION_INT < AV_VERSION_INT(4, 5, 100)
-    swrCtx = swr_alloc_set_opts(nullptr,
-                                channelLayout,
-                                outSampleFormat,
-                                avFrame->sample_rate,
-                                channelLayout,
-                                static_cast<AVSampleFormat>(avFrame->format),
-                                avFrame->sample_rate,
-                                0, nullptr);
-#else
-    swr_alloc_set_opts2(&swrCtx,
-                        &channelLayout,
-                        outSampleFormat,
-                        avFrame->sample_rate,
-                        &channelLayout,
-                        static_cast<AVSampleFormat>(avFrame->format),
-                        avFrame->sample_rate,
-                        0, nullptr);
-#endif
-
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(57, 24, 100)
-        int channels = avFrame->channels;
-#else
-        int channels = avFrame->ch_layout.nb_channels;
-#endif
-
-    if (swr_init(swrCtx) == 0) {
-        int outSamples = swr_get_out_samples(swrCtx, avFrame->nb_samples);
-        av_samples_alloc(&m_buffer, NULL, channels, outSamples, outSampleFormat, 0);
-
-        auto converted = swr_convert(swrCtx,
-                                     &m_buffer,
-                                     outSamples,
-                                     const_cast<const uint8_t**>(avFrame->data),
-                                     avFrame->nb_samples);
-        if (converted > 0) {
-            m_dataSize = channels * converted * av_get_bytes_per_sample(outSampleFormat);
-        }
+    if (isValid()) {
+        auto &resampler = std::static_pointer_cast<QmlAVAudioDecoder>(m_decoder)->resampler();
+        m_dataSize =  resampler.convert(&m_buffer, *this);
     }
-
-    swr_free(&swrCtx);
 }
 
 QmlAVAudioFrame::~QmlAVAudioFrame()
 {
     av_freep(&m_buffer);
+}
+
+bool QmlAVAudioFrame::isValid() const
+{
+    return m_decoder && avFrame()->extended_data;
 }
 
 size_t QmlAVAudioFrame::readData(uint8_t *data, size_t maxSize)
@@ -197,19 +155,30 @@ size_t QmlAVAudioFrame::readData(uint8_t *data, size_t maxSize)
     return size;
 }
 
+AVSampleFormat QmlAVAudioFrame::sampleFormat() const
+{
+    return av_get_packed_sample_fmt(static_cast<AVSampleFormat>(avFrame()->format));
+}
+
+int QmlAVAudioFrame::channelCount() const
+{
+    return
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(57, 24, 100)
+    avFrame()->channels;
+#else
+    avFrame()->ch_layout.nb_channels;
+#endif
+}
+
 QAudioFormat QmlAVAudioFrame::audioFormat() const
 {
     QAudioFormat format;
 
     if (isValid()) {
-        AVSampleFormat outSampleFormat = av_get_packed_sample_fmt(static_cast<AVSampleFormat>(avFrame()->format));
+        AVSampleFormat outSampleFormat = sampleFormat();
 
-        format.setSampleRate(avFrame()->sample_rate);
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(57, 24, 100)
-        format.setChannelCount(avFrame()->channels);
-#else
-        format.setChannelCount(avFrame()->ch_layout.nb_channels);
-#endif
+        format.setSampleRate(sampleRate());
+        format.setChannelCount(channelCount());
         format.setCodec("audio/pcm");
         format.setByteOrder(AV_NE(QAudioFormat::BigEndian, QAudioFormat::LittleEndian));
         format.setSampleType(QmlAVSampleFormat::audioFormatFromAVFormat(outSampleFormat));
