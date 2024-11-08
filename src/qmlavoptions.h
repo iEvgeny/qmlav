@@ -62,6 +62,7 @@ public:
     bool videoDisable() const;
     bool audioDisable() const;
     std::optional<bool> realTime() const;
+    std::optional<AVRational> aspectRatio() const;
 
 protected:
     template<typename T> T sTo(std::string value) const { return value; }

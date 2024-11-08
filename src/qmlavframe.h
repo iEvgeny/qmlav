@@ -50,7 +50,7 @@ public:
     bool isValid() const override;
 
     QSize size() const { return {avFrame()->width, avFrame()->height}; }
-    QSize sampleAspectRatio() const;
+    AVRational sampleAspectRatio() const;
     bool isHWDecoded() const { return avFrame()->hw_frames_ctx; }
     QmlAVPixelFormat pixelFormat() const { return avFrame()->format; }
     QmlAVPixelFormat swPixelFormat() const;

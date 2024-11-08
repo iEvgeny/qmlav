@@ -1,6 +1,10 @@
 #include "qmlavoptions.h"
 #include "qmlavhwoutput.h"
 
+extern "C" {
+#include <libavutil/parseutils.h>
+}
+
 #include <QGuiApplication>
 
 QmlAVOptions::QmlAVOptions(const QVariantMap &avOptions)
@@ -156,6 +160,23 @@ std::optional<bool> QmlAVOptions::realTime() const
     });
 
     return rt;
+}
+
+std::optional<AVRational> QmlAVOptions::aspectRatio() const
+{
+    std::optional<AVRational> ratio = std::nullopt;
+
+    find("aspect", [&](std::string value) {
+        AVRational q;
+        if (av_parse_ratio_quiet(&q, value.c_str(), 255) < 0 || q.num <= 0 || q.den <= 0) {
+            logWarning() << "Invalid aspect ratio: " << QmlAV::Quote << value;
+            return;
+        }
+
+        ratio = q;
+    });
+
+    return ratio;
 }
 
 template<>

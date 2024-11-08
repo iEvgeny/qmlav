@@ -67,7 +67,7 @@ bool QmlAVVideoFrame::isValid() const
     return m_decoder && (avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3]);
 }
 
-QSize QmlAVVideoFrame::sampleAspectRatio() const
+AVRational QmlAVVideoFrame::sampleAspectRatio() const
 {
     AVRational sar = {1, 1};
 
@@ -81,7 +81,7 @@ QSize QmlAVVideoFrame::sampleAspectRatio() const
         }
     }
 
-    return QSize(sar.num, sar.den);
+    return sar;
 }
 
 QmlAVPixelFormat QmlAVVideoFrame::swPixelFormat() const

@@ -93,7 +93,23 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
             if (m_videoSurface) {
                 if (!m_videoSurface->isActive()) {
                     QVideoSurfaceFormat f(qvf.size(), qvf.pixelFormat(), qvf.handleType());
-                    f.setPixelAspectRatio(vf->sampleAspectRatio());
+
+                    AVRational sar = {1, 1};
+                    auto dar = QmlAVOptions(m_avOptions).aspectRatio();
+                    if (!dar.has_value()) {
+                        sar = vf->sampleAspectRatio();
+                    } else {
+                        // Just divide the DAR by the Frame size and reduce the fraction
+                        av_reduce(&sar.num, &sar.den,
+                                  dar->num * vf->size().height(),
+                                  dar->den * vf->size().width(),
+                                  1024 * 1024);
+                        logDebug() << "Force Aspect Ratio "
+                                  << vf->size().width() << "x" << vf->size().height()
+                                  << " [SAR " << sar.num << ":" << sar.den << " DAR " << dar->num << ":" << dar->den << "]";
+                    }
+                    f.setPixelAspectRatio(sar.num, sar.den);
+
                     f.setYCbCrColorSpace(vf->colorSpace());
                     logDebug() << "Starting with: "
                                << "QVideoSurfaceFormat(" << f.pixelFormat() << ", " << f.frameSize()
