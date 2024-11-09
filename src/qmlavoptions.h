@@ -51,6 +51,7 @@ public:
 
     QmlAVOptions() { }
     QmlAVOptions(const QVariantMap &avOptions);
+    operator const QVariantMap&() const { return m_avOptions; }
 
     operator AVDictionaryPtr() const;
 
@@ -70,7 +71,7 @@ protected:
     template<typename Callback> int find(std::vector<std::string> opts, Callback cb) const;
 
 private:
-    std::vector<std::pair<std::string, std::string>> m_avOptions;
+    QVariantMap m_avOptions;
 };
 
 #endif // QMLAVOPTIONS_H

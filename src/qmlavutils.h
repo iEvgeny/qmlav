@@ -39,6 +39,18 @@ inline int av_channel_layout_copy(AVChannelLayout *dst, const AVChannelLayout *s
 #define av_err2str(errnum) \
     av_make_error_string(static_cast<char *>(alloca(AV_ERROR_MAX_STRING_SIZE)), AV_ERROR_MAX_STRING_SIZE, errnum)
 
+// FIXME: Deprecated since Qt 6.4 and later (Use built-in QMap::asKeyValueRange())
+// https://stackoverflow.com/questions/8517853/iterating-over-a-qmap-with-for/77994379#77994379
+template<typename T> class KeyValueRange {
+public:
+    KeyValueRange(T &iterable) : iterable(iterable) { }
+    auto begin() const { return iterable.keyValueBegin(); }
+    auto end() const { return iterable.keyValueEnd(); }
+private:
+    T iterable;
+};
+template <typename T> auto asKeyValueRange(const T &iterable) { return KeyValueRange<const T &>(iterable); }
+
 template<typename T, typename Super = std::atomic<T>>
 struct QmlAVRelaxedAtomic : Super
 {

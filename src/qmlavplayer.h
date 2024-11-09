@@ -106,7 +106,7 @@ private:
     QmlAVAudioIODevice m_audioIODevice;
     QAudioOutput *m_audioOutput;
 
-    QVariantMap m_avOptions;
+    QmlAVOptions m_avOptions;
     bool m_autoLoad;
     bool m_autoPlay;
     int m_loops;

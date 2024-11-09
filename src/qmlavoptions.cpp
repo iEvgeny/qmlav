@@ -1,27 +1,23 @@
 #include "qmlavoptions.h"
 #include "qmlavhwoutput.h"
 
+#include <QGuiApplication>
+
 extern "C" {
 #include <libavutil/parseutils.h>
 }
 
-#include <QGuiApplication>
-
 QmlAVOptions::QmlAVOptions(const QVariantMap &avOptions)
+    : m_avOptions(avOptions)
 {
-    QVariantMap::const_iterator i = avOptions.constBegin();
-    while (i != avOptions.constEnd()) {
-        m_avOptions.push_back({i.key().toStdString(), i.value().toString().toStdString()});
-        ++i;
-    }
 }
 
 QmlAVOptions::operator AVDictionaryPtr() const
 {
     AVDictionaryPtr dict;
 
-    for (const auto& [key, value] : m_avOptions) {
-        dict.set(key, value);
+    for (const auto &[key, value] : asKeyValueRange(m_avOptions)) {
+        dict.set(key.toStdString(), value.toString().toStdString());
         logDebug() << "Added AVFormat option: -" << key << QmlAV::Space << value;
     }
 
@@ -205,22 +201,22 @@ int QmlAVOptions::find(std::vector<std::string> opts, Callback cb) const
     using Result = QmlAVUtils::InvokeResult<Callback>;
     using ValueType = std::tuple_element_t<0, QmlAVUtils::InvokeArgsTuple<Callback>>;
 
-    for (const auto &i : m_avOptions) {
-        if (std::find(opts.begin(), opts.end(), i.first) != opts.end()) {
+    for (const auto &[key, value] : asKeyValueRange(m_avOptions)) {
+        if (std::find(opts.begin(), opts.end(), key.toStdString()) != opts.end()) {
             ++count;
 
             try {
-                auto value = sTo<ValueType>(i.second);
+                auto typedValue = sTo<ValueType>(value.toString().toStdString());
 
                 if constexpr (std::is_same_v<Result, QmlAVOptions::FindControl>) {
-                    if (cb(value) == QmlAVOptions::MultiKey) {
+                    if (cb(typedValue) == QmlAVOptions::MultiKey) {
                         continue;
                     }
                 } else {
-                    cb(value);
+                    cb(typedValue);
                 }
             } catch (...) {
-                logWarning() << "Invalid value for -" << i.first << " option";
+                logWarning() << "Invalid value for -" << key << " option";
             }
 
             break;

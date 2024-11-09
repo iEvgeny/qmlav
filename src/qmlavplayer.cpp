@@ -95,7 +95,7 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                     QVideoSurfaceFormat f(qvf.size(), qvf.pixelFormat(), qvf.handleType());
 
                     AVRational sar = {1, 1};
-                    auto dar = QmlAVOptions(m_avOptions).aspectRatio();
+                    auto dar = m_avOptions.aspectRatio();
                     if (!dar.has_value()) {
                         sar = vf->sampleAspectRatio();
                     } else {
@@ -162,7 +162,7 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
 
 void QmlAVPlayer::setAVOptions(const QVariantMap &avOptions)
 {
-    if (m_avOptions == avOptions) {
+    if (static_cast<QVariantMap>(m_avOptions) == avOptions) {
         return;
     }
 
