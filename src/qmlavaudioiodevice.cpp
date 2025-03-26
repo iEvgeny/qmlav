@@ -29,7 +29,7 @@ qint64 QmlAVAudioIODevice::readData([[maybe_unused]] char *data, [[maybe_unused]
     if (!m_frames.empty()) {
         auto &f = m_frames.front();
         size = f->readData(reinterpret_cast<uint8_t *>(data), maxSize);
-        if (f->dataSize() == 0) {
+        if (size == 0) {
             m_frames.pop_front();
         }
     }

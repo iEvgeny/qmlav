@@ -22,7 +22,7 @@ public:
 
     QmlAVFrame(const AVFramePtr &avFrame, Type type = TypeUnknown);
     QmlAVFrame(const QmlAVFrame &other);
-    virtual ~QmlAVFrame() { }
+    virtual ~QmlAVFrame();
 
     Type type() const { return m_type; }
 
@@ -35,11 +35,14 @@ public:
     int64_t pts() const;
 
 protected:
-    std::shared_ptr<QmlAVDecoder> m_decoder;
+    const auto &decoder() const { return m_decoder; }
+    // NOTE: Creates a new instance of std::shared_ptr
+    template<typename T> std::shared_ptr<T> decoder() const { return std::static_pointer_cast<T>(m_decoder); }
 
 private:
     AVFramePtr m_avFrame;
     Type m_type;
+    std::shared_ptr<QmlAVDecoder> m_decoder;
 };
 
 class QmlAVVideoFrame final : public QmlAVFrame

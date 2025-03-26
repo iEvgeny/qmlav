@@ -77,7 +77,7 @@ private:
     QmlAVThreadLiveController<void> m_loaderThread;
     QmlAVThreadLiveController<QmlAVLoopController> m_demuxerThread;
 
-    QmlAVAudioDecoder::Clock m_clock;
+    QmlAVDecoder::Clock m_clock;
     // We need more control over the decoder's lifetime since it can be used in another thread
     std::shared_ptr<QmlAVVideoDecoder> m_videoDecoder;
     std::shared_ptr<QmlAVAudioDecoder> m_audioDecoder;

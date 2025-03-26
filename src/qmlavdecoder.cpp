@@ -9,9 +9,9 @@ extern "C" {
 #include <libavutil/hwcontext.h>
 }
 
-#define MAX_PACKETS 64
-#define MAX_VIDEO_FRAMES 8
-#define MAX_AUDIO_FRAMES 32
+#define PACKETS_LIMIT 64
+#define VIDEO_FRAMES_LIMIT 8
+#define AUDIO_FRAMES_LIMIT 32
 
 QmlAVDecoder::QmlAVDecoder(Clock &clock, QObject *parent, Type type)
     : QObject(parent)
@@ -24,7 +24,7 @@ QmlAVDecoder::QmlAVDecoder(Clock &clock, QObject *parent, Type type)
     qRegisterMetaType<std::shared_ptr<QmlAVFrame>>();
 
     m_thread = m_threadTask.getLiveController();
-    m_threadTask.argsQueue()->resetWaitLimits(1, MAX_PACKETS);
+    m_threadTask.argsQueue()->resetWaitLimits(1, PACKETS_LIMIT);
 }
 
 QmlAVDecoder::~QmlAVDecoder()
@@ -144,11 +144,10 @@ QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
 
             auto f = frame(avFrame);
             if (f && f->isValid()) {
-                m_clock.lastPts.store(f->pts(), std::memory_order_release);
                 m_counters.framesDecoded++;
                 emit frameFinished(f);
 
-                if (!m_clock.realTime.load(std::memory_order_relaxed)) {
+                if (!m_clock.realTime) {
                     // Primitive syncing for local playback
                     auto presentTime = startTime() + f->pts() - f->startPts();
                     return QmlAVLoopController(QmlAVLoopController::Retry, presentTime - Clock::now());
@@ -166,7 +165,7 @@ QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
 QmlAVVideoDecoder::QmlAVVideoDecoder(Clock &clock, QObject *parent)
     : QmlAVDecoder(clock, parent, TypeVideo)
 {   
-    m_frameQueueLimit.setLimit(MAX_VIDEO_FRAMES);
+    m_frameQueueLimit.setLimit(VIDEO_FRAMES_LIMIT);
 }
 
 QmlAVVideoDecoder::~QmlAVVideoDecoder()
@@ -249,7 +248,7 @@ const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::frame(const AVFramePtr &avF
 QmlAVAudioDecoder::QmlAVAudioDecoder(Clock &clock, QObject *parent)
     : QmlAVDecoder(clock, parent, TypeAudio)
 {
-    m_frameQueueLimit.setLimit(MAX_AUDIO_FRAMES);
+    m_frameQueueLimit.setLimit(AUDIO_FRAMES_LIMIT);
 }
 
 const std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::frame(const AVFramePtr &avFrame) const

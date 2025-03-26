@@ -23,9 +23,9 @@ class QmlAVDecoder : public QObject, public std::enable_shared_from_this<QmlAVDe
 
 public:
     struct Clock {
-        std::atomic_int64_t startTime = 0;
-        std::atomic_bool realTime = true;
-        std::atomic_int64_t lastPts = 0;
+        QmlAVReleaseAcquireAtomic<int64_t> startTime = 0;
+        QmlAVRelaxedAtomic<bool> realTime = true;
+        QmlAVReleaseAcquireAtomic<int64_t> leftPts = 0; // PTS of the last destructed frame
 
         static int64_t now() { return av_gettime_relative(); }
     };
@@ -54,6 +54,7 @@ public:
     const AVStream *stream() const { return m_avStream; }
     int streamIndex() const { return m_avStream ? m_avStream->index : -1; }
 
+    Clock &clock() { return m_clock; }
     int64_t startTime() const;
 
     bool decodeAVPacket(const AVPacketPtr &avPacket);

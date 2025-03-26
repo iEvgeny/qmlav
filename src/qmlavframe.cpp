@@ -7,6 +7,8 @@ extern "C" {
 #include <libavutil/imgutils.h>
 }
 
+#define AUDIO_LATENCY_LIMIT 300000 // 300 ms
+
 QmlAVFrame::QmlAVFrame(const AVFramePtr &avFrame, Type type)
     : m_avFrame(avFrame)
     , m_type(type)
@@ -19,6 +21,12 @@ QmlAVFrame::QmlAVFrame(const AVFramePtr &avFrame, Type type)
 }
 
 QmlAVFrame::QmlAVFrame(const QmlAVFrame &other) : QmlAVFrame(other.m_avFrame, other.m_type) { }
+
+QmlAVFrame::~QmlAVFrame()
+{
+    assert(m_decoder);
+    m_decoder->clock().leftPts = pts();
+}
 
 int64_t QmlAVFrame::startTime() const
 {
@@ -64,7 +72,7 @@ QmlAVVideoFrame::QmlAVVideoFrame(const AVFramePtr &avFrame)
 
 bool QmlAVVideoFrame::isValid() const
 {
-    return m_decoder && (avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3]);
+    return decoder() && (avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3]);
 }
 
 AVRational QmlAVVideoFrame::sampleAspectRatio() const
@@ -72,7 +80,7 @@ AVRational QmlAVVideoFrame::sampleAspectRatio() const
     AVRational sar = {1, 1};
 
     if (isValid()) {
-        auto codecpar = m_decoder->stream()->codecpar;
+        auto codecpar = decoder()->stream()->codecpar;
 
         if (avFrame()->sample_aspect_ratio.num) {
             sar = avFrame()->sample_aspect_ratio;
@@ -114,7 +122,7 @@ QmlAVVideoFrame::operator QVideoFrame() const
 
     if (isValid())  {
         if (isHWDecoded()) {
-            buffer = new QmlAVVideoBuffer_GPU(*this, std::static_pointer_cast<const QmlAVVideoDecoder>(m_decoder)->hwOutput());
+            buffer = new QmlAVVideoBuffer_GPU(*this, decoder<QmlAVVideoDecoder>()->hwOutput());
         } else {
             buffer = new QmlAVVideoBuffer_CPU(*this);
         }
@@ -132,8 +140,18 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
     , m_dataSize(0)
 {
     if (isValid()) {
-        auto &resampler = std::static_pointer_cast<QmlAVAudioDecoder>(m_decoder)->resampler();
-        m_dataSize =  resampler.convert(&m_buffer, *this);
+        double compensationFactor = 1.0;
+
+        int64_t leftPts =  decoder()->clock().leftPts;
+        if (leftPts) {
+            auto delta = pts() - leftPts;
+            if (delta > AUDIO_LATENCY_LIMIT) {
+                compensationFactor = 0.98; // -2%
+            }
+        }
+
+        auto &resampler = decoder<QmlAVAudioDecoder>()->resampler();
+        m_dataSize =  resampler.convert(&m_buffer, *this, compensationFactor);
     }
 }
 
@@ -144,7 +162,7 @@ QmlAVAudioFrame::~QmlAVAudioFrame()
 
 bool QmlAVAudioFrame::isValid() const
 {
-    return m_decoder && avFrame()->extended_data;
+    return decoder() && avFrame()->extended_data;
 }
 
 size_t QmlAVAudioFrame::readData(uint8_t *data, size_t maxSize)

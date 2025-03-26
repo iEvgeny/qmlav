@@ -3,6 +3,7 @@
 
 QmlAVResampler::QmlAVResampler()
     : m_swrCtx(nullptr)
+    , m_channelLayout(0)
     , m_inSampleFormat(AV_SAMPLE_FMT_NONE)
     , m_inSampleRate(0)
 {
@@ -13,12 +14,41 @@ QmlAVResampler::~QmlAVResampler()
     swr_free(&m_swrCtx);
 }
 
-size_t QmlAVResampler::convert(uint8_t **dstBuffer, const QmlAVAudioFrame &srcFrame)
+/*
+ * For  "compensationFactor":
+ *   0.9 - reduce by 10%
+ *   1.0 - nothing to do
+ *   1.1 - increase by 10%
+ *
+ * Compensation will remain in effect after setting "compensationFactor" to 1.0 during:
+ *   previous "compensationFactor" * 1 sec.
+ */
+size_t QmlAVResampler::convert(uint8_t **dstBuffer, const QmlAVAudioFrame &srcFrame, double compensationFactor)
 {
     int channels = srcFrame.channelCount();
     AVSampleFormat outSampleFormat = srcFrame.sampleFormat();
 
     if (initCachedContext(srcFrame)) {
+        int srcDistance = srcFrame.sampleRate() * 1; // 1 sec.
+        int tgtDistance = srcDistance * compensationFactor;
+
+        int delta = tgtDistance - srcDistance;
+        if (delta != 0) {
+            /*
+             * sample_delta - delta between the number of input and output samples
+             * compensation_distance - distance for output samples
+             *
+             * Example:
+             * Reduce the input buffer by 1000 samples, distributing the compensation over 10000 output samples
+             *   swr_set_compensation(m_swrCtx, -1000, 10000);
+             */
+            if (swr_set_compensation(m_swrCtx, delta, tgtDistance) < 0) {
+                logWarning() << "swr_set_compensation() failed";
+            }
+        }
+
+        // NOTE: The Swr context must be set with swr_set_compensation() before calling this method,
+        // especially when compensating with increase.
         int outSamples = swr_get_out_samples(m_swrCtx, srcFrame.avFrame()->nb_samples);
         av_samples_alloc(dstBuffer, NULL, channels, outSamples, outSampleFormat, 0);
 

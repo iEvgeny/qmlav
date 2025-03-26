@@ -51,23 +51,40 @@ private:
 };
 template <typename T> auto asKeyValueRange(const T &iterable) { return KeyValueRange<const T &>(iterable); }
 
-template<typename T, typename Super = std::atomic<T>>
-struct QmlAVRelaxedAtomic : Super
+template<typename T,
+         std::memory_order StoreOrder = std::memory_order_seq_cst,
+         std::memory_order LoadOrder = StoreOrder,
+         typename Super = std::atomic<T>>
+struct QmlAVAtomic : Super
 {
-    constexpr static auto order = std::memory_order_relaxed;
+    constexpr QmlAVAtomic(T value) noexcept : Super(value) { }
 
-    constexpr QmlAVRelaxedAtomic(T other) noexcept : Super(other) { }
-
-    T get() const noexcept { return Super::load(order); }
+    T get() const noexcept { return Super::load(LoadOrder); }
     operator T() const noexcept { return get(); }
 
-    T operator=(T i) noexcept { Super::store(i, order); return i; }
-    T operator++(int) noexcept { return Super::fetch_add(1, order); }
-    T operator--(int) noexcept { return Super::fetch_sub(1, order); }
-    T operator++() = delete;
-    T operator--() = delete;
+    T operator=(T i) noexcept { Super::store(i, StoreOrder); return i; }
+    T operator++(int) noexcept { return Super::fetch_add(1, StoreOrder); }
+    T operator--(int) noexcept { return Super::fetch_sub(1, StoreOrder); }
+    T operator++() noexcept { return Super::fetch_add(1, StoreOrder) + 1; }
+    T operator--() noexcept { return Super::fetch_sub(1, StoreOrder) - 1; }
 
     // TODO: Implement other members as needed
+};
+
+template<typename T, typename Super = QmlAVAtomic<T, std::memory_order_relaxed>>
+struct QmlAVRelaxedAtomic : Super
+{
+    constexpr QmlAVRelaxedAtomic(T value) noexcept : Super(value) { }
+
+    using Super::operator=;
+};
+
+template<typename T, typename Super = QmlAVAtomic<T, std::memory_order_release, std::memory_order_acquire>>
+struct QmlAVReleaseAcquireAtomic : Super
+{
+    constexpr QmlAVReleaseAcquireAtomic(T value) noexcept : Super(value) { }
+
+    using Super::operator=;
 };
 
 template<typename T>
