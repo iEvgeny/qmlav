@@ -3,7 +3,6 @@
 
 QmlAVResampler::QmlAVResampler()
     : m_swrCtx(nullptr)
-    , m_channelLayout(0)
     , m_inSampleFormat(AV_SAMPLE_FMT_NONE)
     , m_inSampleRate(0)
 {
