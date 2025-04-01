@@ -54,37 +54,37 @@ template <typename T> auto asKeyValueRange(const T &iterable) { return KeyValueR
 template<typename T,
          std::memory_order StoreOrder = std::memory_order_seq_cst,
          std::memory_order LoadOrder = StoreOrder,
-         typename Super = std::atomic<T>>
-struct QmlAVAtomic : Super
+         typename __Super = std::atomic<T>>
+struct QmlAVAtomic : __Super
 {
-    constexpr QmlAVAtomic(T value) noexcept : Super(value) { }
+    constexpr QmlAVAtomic(T value) noexcept : __Super(value) { }
 
-    T get() const noexcept { return Super::load(LoadOrder); }
+    T get() const noexcept { return __Super::load(LoadOrder); }
     operator T() const noexcept { return get(); }
 
-    T operator=(T i) noexcept { Super::store(i, StoreOrder); return i; }
-    T operator++(int) noexcept { return Super::fetch_add(1, StoreOrder); }
-    T operator--(int) noexcept { return Super::fetch_sub(1, StoreOrder); }
-    T operator++() noexcept { return Super::fetch_add(1, StoreOrder) + 1; }
-    T operator--() noexcept { return Super::fetch_sub(1, StoreOrder) - 1; }
+    T operator=(T i) noexcept { __Super::store(i, StoreOrder); return i; }
+    T operator++(int) noexcept { return __Super::fetch_add(1, StoreOrder); }
+    T operator--(int) noexcept { return __Super::fetch_sub(1, StoreOrder); }
+    T operator++() noexcept { return __Super::fetch_add(1, StoreOrder) + 1; }
+    T operator--() noexcept { return __Super::fetch_sub(1, StoreOrder) - 1; }
 
     // TODO: Implement other members as needed
 };
 
-template<typename T, typename Super = QmlAVAtomic<T, std::memory_order_relaxed>>
-struct QmlAVRelaxedAtomic : Super
+template<typename T, typename __Super = QmlAVAtomic<T, std::memory_order_relaxed>>
+struct QmlAVRelaxedAtomic : __Super
 {
-    constexpr QmlAVRelaxedAtomic(T value) noexcept : Super(value) { }
+    constexpr QmlAVRelaxedAtomic(T value) noexcept : __Super(value) { }
 
-    using Super::operator=;
+    using __Super::operator=;
 };
 
-template<typename T, typename Super = QmlAVAtomic<T, std::memory_order_release, std::memory_order_acquire>>
-struct QmlAVReleaseAcquireAtomic : Super
+template<typename T, typename __Super = QmlAVAtomic<T, std::memory_order_release, std::memory_order_acquire>>
+struct QmlAVReleaseAcquireAtomic : __Super
 {
-    constexpr QmlAVReleaseAcquireAtomic(T value) noexcept : Super(value) { }
+    constexpr QmlAVReleaseAcquireAtomic(T value) noexcept : __Super(value) { }
 
-    using Super::operator=;
+    using __Super::operator=;
 };
 
 template<typename T>

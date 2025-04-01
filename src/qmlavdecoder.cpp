@@ -23,8 +23,8 @@ QmlAVDecoder::QmlAVDecoder(Clock &clock, QObject *parent, Type type)
 {
     qRegisterMetaType<std::shared_ptr<QmlAVFrame>>();
 
-    m_thread = m_threadTask.getLiveController();
-    m_threadTask.argsQueue()->resetWaitLimits(1, PACKETS_LIMIT);
+    m_thread = m_threadTask.getLiveController();   
+    m_threadTask.argsQueue()->setProducerLimit(PACKETS_LIMIT);
 }
 
 QmlAVDecoder::~QmlAVDecoder()

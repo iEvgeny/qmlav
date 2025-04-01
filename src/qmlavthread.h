@@ -3,20 +3,20 @@
 
 #include <thread>
 
-#include "qmlavqueue.h"
+#include "qmlavwaitingqueue.h"
 #include "qmlavutils.h"
 
 class QmlAVLoopController
 {
 public:
-    enum LoopControl {
+    enum Operator {
         Break,
         Continue,
         Retry // Same as Continue, but without dequeue() for the Args Queue
     };
 
     QmlAVLoopController(int64_t sleep = 0) : QmlAVLoopController(Continue, sleep) { }
-    QmlAVLoopController(LoopControl ctrl, int64_t sleep = 0)
+    QmlAVLoopController(Operator ctrl, int64_t sleep = 0)
     {
         m_ctrl = ctrl;
         m_sleep = std::max<int64_t>(0, sleep);
@@ -32,7 +32,7 @@ public:
     }
 
 private:
-    LoopControl m_ctrl;
+    Operator m_ctrl;
     int64_t m_sleep;
 };
 
@@ -61,7 +61,7 @@ public:
     }
 
     virtual void requestInterruption() override {
-        m_results.resetWaitLimits();
+        m_results.setConsumerLimit(0);
     }
 
 protected:
@@ -71,7 +71,7 @@ protected:
     }
 
 private:
-    QmlAVQueue<Result> m_results;
+    QmlAVWaitingQueue<Result> m_results;
 };
 
 template<typename Callable>
@@ -87,6 +87,9 @@ protected:
     using ArgsTuple = QmlAVUtils::InvokeArgsTuple<Callable>;
     using Result = QmlAVUtils::InvokeResult<Callable>;
 
+    constexpr static bool isLoopCtrlResult() { return std::is_same_v<Result, QmlAVLoopController>; }
+    constexpr static bool isVoidResult() { return std::is_void_v<Result>; }
+
 public:
     QmlAVWorkerInvokeImpl(Callable &&callable)
         : m_callable(std::forward<Callable>(callable)) { }
@@ -96,16 +99,16 @@ protected:
     QmlAVLoopController invokeImpl(URef &&args) {
         auto data = std::tuple_cat(std::forward_as_tuple(m_callable), std::forward<URef>(args));
 
-        if constexpr (std::is_same_v<Result, QmlAVLoopController>) {
+        if constexpr (isLoopCtrlResult()) {
             return std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, data);
-        } else if constexpr (std::is_void_v<Result>) {
+        } else if constexpr (isVoidResult()) {
             std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, data);
-            return QmlAVLoopController::Break;
         } else {
             auto result = std::apply(&QmlAVUtils::FunctionTraits<Callable>::template invoke<Callable>, data);
             this->setResult(std::move(result));
-            return QmlAVLoopController::Continue;
         }
+
+        return QmlAVLoopController::Break;
     }
 
 private:
@@ -115,10 +118,12 @@ private:
 template<typename Callable, typename ...Args>
 class QmlAVWorker : public QmlAVWorkerInvokeImpl<Callable>
 {
+    using __Super = QmlAVWorkerInvokeImpl<Callable>;
+
 public:
     // NOTE: Here and below, we don't rely on "Callable" deduction, so we don't use universal/forwarding references.
     QmlAVWorker(Callable callable, Args ...args)
-        : QmlAVWorkerInvokeImpl<Callable>(std::forward<Callable>(callable))
+        : __Super(std::forward<Callable>(callable))
         , m_args(std::forward<Args>(args)...) { }
 
     virtual QmlAVLoopController invoke() override final {
@@ -126,40 +131,52 @@ public:
     }
 
 private:
-    typename QmlAVWorkerInvokeImpl<Callable>::ArgsTuple m_args;
+    typename __Super::ArgsTuple m_args;
 };
 
 template<typename Callable, typename ArgsQueue>
 class QmlAVWorker<Callable, std::shared_ptr<ArgsQueue>> : public QmlAVWorkerInvokeImpl<Callable>
 {
-    static_assert(std::is_same_v<ArgsQueue, QmlAVQueue<typename QmlAVWorkerInvokeImpl<Callable>::ArgsTuple>>,
-                  "This implementation is only for \"std::shared_ptr<QmlAVQueue<InvokeArgsTuple<Callable>>>\" type.");
+    using __Super = QmlAVWorkerInvokeImpl<Callable>;
+
+    static_assert(std::is_same_v<ArgsQueue, QmlAVWaitingQueue<typename __Super::ArgsTuple>>,
+                  "This implementation is only for \"std::shared_ptr<QmlAVWaitingQueue<InvokeArgsTuple<Callable>>>\" type.");
 
 public:
     QmlAVWorker(Callable callable, const std::shared_ptr<ArgsQueue> &argsQueue)
-        : QmlAVWorkerInvokeImpl<Callable>(std::forward<Callable>(callable))
+        : __Super(std::forward<Callable>(callable))
         , m_argsQueue(argsQueue) { }
 
     virtual QmlAVLoopController invoke() override final {
-        typename QmlAVWorkerInvokeImpl<Callable>::ArgsTuple args;
+        typename __Super::ArgsTuple args;
 
-        if (m_argsQueue->head(args)) {
-            auto ctrl =  this->invokeImpl(args);
-            if (!ctrl.isRetry()) {
-                m_argsQueue->dequeue();
+        if constexpr (__Super::isLoopCtrlResult()) {
+            if (m_argsQueue->head(args)) {
+                auto ctrl =  this->invokeImpl(args);
+                if (!ctrl.isRetry()) {
+                    m_argsQueue->dequeue();
+                }
+                return ctrl;
             }
-            return ctrl;
+        } else {
+            if (m_argsQueue->dequeue(args)) {
+                if constexpr (__Super::isVoidResult()) {
+                    return this->invokeImpl(args);
+                } else {
+                    this->invokeImpl(args);
+                }
+            }
         }
 
-        return QmlAVLoopController::Break;
+        return QmlAVLoopController::Continue;
     }
 
     virtual void requestInterruption() override final {
         if (m_argsQueue) {
-            m_argsQueue->resetWaitLimits();
+            m_argsQueue->setConsumerLimit(0);
         }
 
-        QmlAVWorkerInvokeImpl<Callable>::requestInterruption();
+        __Super::requestInterruption();
     }
 
 private:
@@ -273,10 +290,9 @@ public:
         Result data = {};
 
         if (m_thread) {
-            auto queue = static_cast<QmlAVQueue<Result> *>(m_thread->results());
+            auto queue = static_cast<QmlAVWaitingQueue<Result> *>(m_thread->results());
             if (queue) {
-                queue->head(data);
-                queue->dequeue();
+                queue->dequeue(data);
             }
         }
 
@@ -288,14 +304,13 @@ public:
         std::list<Result> list;
 
         if (m_thread) {
-            auto queue = static_cast<QmlAVQueue<Result> *>(m_thread->results());
+            auto queue = static_cast<QmlAVWaitingQueue<Result> *>(m_thread->results());
             if (queue) {
                 Result data = {};
 
                 do {
-                    if (queue->head(data)) {
+                    if (queue->dequeue(data)) {
                         list.push_back(std::move(data));
-                        queue->dequeue();
                     }
                 } while (!queue->isEmpty());
             }
@@ -323,7 +338,7 @@ private:
 template<typename Callable>
 class QmlAVThreadTask
 {
-    using ArgsQueue = QmlAVQueue<QmlAVUtils::InvokeArgsTuple<Callable>>;
+    using ArgsQueue = QmlAVWaitingQueue<QmlAVUtils::InvokeArgsTuple<Callable>>;
 
 public:
     QmlAVThreadTask(Callable &&callable)

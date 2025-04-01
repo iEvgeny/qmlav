@@ -50,6 +50,15 @@ TEST(QmlAVThread, RunGenericFunction_RefRefArgTest)
     EXPECT_EQ(c.result(), 42);
 }
 
+TEST(QmlAVThread, RunGenericFunction_RefRefArgTest2)
+{
+    int n = 42;
+    QmlAVThreadLiveController<int> c = QmlAVThread::run(&generic_fn2<int &, int &&>, n, 42);
+    QmlAVThreadLiveController<int> c2 = QmlAVThread::run(&generic_fn2<int &&, int &>, 42, n);
+
+    EXPECT_EQ(c.result(), c2.result());
+}
+
 TEST(QmlAVThread, RunGenericFunction_WithoutArgsTest)
 {
     int r = 0;
@@ -60,13 +69,12 @@ TEST(QmlAVThread, RunGenericFunction_WithoutArgsTest)
     EXPECT_EQ(r, 42);
 }
 
-TEST(QmlAVThread, RunGenericFunction_RefRefArgTest2)
+TEST(QmlAVThread, RunGenericFunction_WithoutArgsTest2)
 {
-    int n = 42;
-    QmlAVThreadLiveController<int> c = QmlAVThread::run(&generic_fn2<int &, int &&>, n, 42);
-    QmlAVThreadLiveController<int> c2 = QmlAVThread::run(&generic_fn2<int &&, int &>, 42, n);
+    QmlAVThreadLiveController<int> c = QmlAVThread::run([&]() { return 42; });
+    c.waitForFinished(); // Important! Testing cyclic locking
 
-    EXPECT_EQ(c.result(), c2.result());
+    EXPECT_EQ(c.result(), 42);
 }
 
 TEST(QmlAVThread, RunClassMember)
@@ -155,7 +163,7 @@ TEST(QmlAVThread, QmlAVTask_Retry)
 {
     int n = 0;
 
-    auto t = QmlAVThreadTask([&]([[maybe_unused]] std::string &s) -> QmlAVLoopController {
+    auto t = QmlAVThreadTask([&](std::string &s) -> QmlAVLoopController {
         if (!s.empty() && ++n < std::stoi(s)) {
             return QmlAVLoopController::Retry;
         }
