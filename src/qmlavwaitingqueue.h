@@ -5,7 +5,7 @@
 #include <condition_variable>
 #include <queue>
 
-template <typename T>
+template<typename T>
 class QmlAVWaitingQueue
 {
 public:
@@ -33,7 +33,7 @@ public:
         return *this;
     }
 
-    template <typename URef>
+    template<typename URef>
     void enqueue(URef &&value) {
         {
             std::unique_lock<std::mutex> lock(m_mutex);

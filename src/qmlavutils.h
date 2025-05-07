@@ -328,5 +328,4 @@ private:
 #define logWarning() QmlAVUtils::log(this, QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).warning(QmlAVUtils::loggingCategory()))
 #define logCritical() QmlAVUtils::log(this, QMessageLogger(QT_MESSAGELOG_FILE, QT_MESSAGELOG_LINE, QT_MESSAGELOG_FUNC).critical(QmlAVUtils::loggingCategory()))
 
-
 #endif // QMLAVUTILS_H

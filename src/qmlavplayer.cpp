@@ -6,15 +6,6 @@ QmlAVPlayer::QmlAVPlayer(QObject *parent)
     , m_demuxer(nullptr)
     , m_videoSurface(nullptr)
     , m_audioOutput(nullptr)
-    , m_autoLoad(true)
-    , m_autoPlay(false)
-    , m_loops(1)
-    , m_playbackState(QMediaPlayer::StoppedState)
-    , m_status(QMediaPlayer::NoMedia)
-    , m_muted(false)
-    , m_volume(0.0)
-    , m_hasVideo(false)
-    , m_hasAudio(false)
 {
     qRegisterMetaType<QList<QVideoFrame::PixelFormat>>();
 
@@ -95,7 +86,7 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                     QVideoSurfaceFormat f(qvf.size(), qvf.pixelFormat(), qvf.handleType());
 
                     AVRational sar = {1, 1};
-                    auto dar = m_avOptions.aspectRatio();
+                    auto dar = QmlAVOptions(m_avOptions).aspectRatio();
                     if (!dar.has_value()) {
                         sar = vf->sampleAspectRatio();
                     } else {
@@ -154,9 +145,9 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
     }
 }
 
-void QmlAVPlayer::setAVOptions(const QVariantMap &avOptions)
+void QmlAVPlayer::setAVOptions(QVariantMap avOptions)
 {
-    if (static_cast<QVariantMap>(m_avOptions) == avOptions) {
+    if (m_avOptions == avOptions) {
         return;
     }
 
@@ -167,11 +158,11 @@ void QmlAVPlayer::setAVOptions(const QVariantMap &avOptions)
     emit avOptionsChanged(avOptions);
 }
 
-void QmlAVPlayer::setAutoLoad(bool autoLoad)
+void QmlAVPlayer::setAutoLoad(QmlAVPropertyType<bool> autoLoad)
 {
     if (m_autoLoad == autoLoad) {
         return;
-}
+    }
 
     m_autoLoad = autoLoad;
 
@@ -182,11 +173,11 @@ void QmlAVPlayer::setAutoLoad(bool autoLoad)
     emit autoLoadChanged(autoLoad);
 }
 
-void QmlAVPlayer::setAutoPlay(bool autoPlay)
+void QmlAVPlayer::setAutoPlay(QmlAVPropertyType<bool> autoPlay)
 {
     if (m_autoPlay == autoPlay) {
         return;
-}
+    }
 
     m_autoPlay = autoPlay;
 
@@ -197,7 +188,7 @@ void QmlAVPlayer::setAutoPlay(bool autoPlay)
     emit autoPlayChanged(autoPlay);
 }
 
-void QmlAVPlayer::setSource(QUrl source)
+void QmlAVPlayer::setSource(QmlAVPropertyType<QUrl> source)
 {
     if (m_source == source) {
         return;
@@ -212,79 +203,21 @@ void QmlAVPlayer::setSource(QUrl source)
     emit sourceChanged(source);
 }
 
-void QmlAVPlayer::setPlaybackState(const QMediaPlayer::State state)
+void QmlAVPlayer::setVolume(QmlAVPropertyType<double> volume)
 {
-    if (m_playbackState == state) {
+    if (qFuzzyCompare(m_volume, volume)) {
         return;
     }
 
-    logDebug() << QString("setPlaybackState(state=%1)").arg(state);
-
-    m_playbackState = state;
-
-    if (sender()) {
-        stateMachine();
-    }
-
-    emit playbackStateChanged(state);
-}
-
-void QmlAVPlayer::setStatus(const QMediaPlayer::MediaStatus status)
-{
-    if (m_status == status) {
-        return;
-    }
-
-    logDebug() << QString("setStatus(status=%1)").arg(status);
-
-    m_status = status;
-
-    stateMachine();
-
-    emit statusChanged(status);
-}
-
-void QmlAVPlayer::setVolume(const QVariant &volume)
-{
-    if (qFuzzyCompare(m_volume, volume.toDouble())) {
-        return;
-    }
-
-    m_volume = volume.toDouble();
+    m_volume = volume;
 
     if (m_audioOutput) {
-        m_audioOutput->setVolume(QAudio::convertVolume(m_volume,
+        m_audioOutput->setVolume(QAudio::convertVolume(volume,
                                                        QAudio::LogarithmicVolumeScale,
                                                        QAudio::LinearVolumeScale));
     }
 
     emit volumeChanged(volume);
-}
-
-void QmlAVPlayer::setHasVideo(bool hasVideo)
-{
-    if (m_hasVideo == hasVideo) {
-        return;
-    }
-
-    logDebug() << QString("setHasVideo(hasVideo=%1)").arg(hasVideo);
-
-    m_hasVideo = hasVideo;
-
-    emit hasVideoChanged(hasVideo);
-}
-
-void QmlAVPlayer::setHasAudio(bool hasAudio)
-{
-    if (m_hasAudio == hasAudio) {
-        return;
-    }
-
-    logDebug() << QString("setHasAudio(hasAudio=%1)").arg(hasAudio);
-
-    m_hasAudio = hasAudio;
-
-    emit hasAudioChanged(hasAudio);
 }
 
 bool QmlAVPlayer::load()
@@ -344,4 +277,62 @@ void QmlAVPlayer::reset()
             load();
         }
     }
+}
+
+void QmlAVPlayer::setPlaybackState(const QMediaPlayer::State state)
+{
+    if (m_playbackState == state) {
+        return;
+    }
+
+    logDebug() << QString("setPlaybackState(state=%1)").arg(state);
+
+    m_playbackState = state;
+
+    if (sender()) {
+        stateMachine();
+    }
+
+    emit playbackStateChanged(state);
+}
+
+void QmlAVPlayer::setStatus(const QMediaPlayer::MediaStatus status)
+{
+    if (m_status == status) {
+        return;
+    }
+
+    logDebug() << QString("setStatus(status=%1)").arg(status);
+
+    m_status = status;
+
+    stateMachine();
+
+    emit statusChanged(status);
+}
+
+void QmlAVPlayer::setHasVideo(bool hasVideo)
+{
+    if (m_hasVideo == hasVideo) {
+        return;
+    }
+
+    logDebug() << QString("setHasVideo(hasVideo=%1)").arg(hasVideo);
+
+    m_hasVideo = hasVideo;
+
+    emit hasVideoChanged(hasVideo);
+}
+
+void QmlAVPlayer::setHasAudio(bool hasAudio)
+{
+    if (m_hasAudio == hasAudio) {
+        return;
+    }
+
+    logDebug() << QString("setHasAudio(hasAudio=%1)").arg(hasAudio);
+
+    m_hasAudio = hasAudio;
+
+    emit hasAudioChanged(hasAudio);
 }

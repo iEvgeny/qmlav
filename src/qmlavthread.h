@@ -220,14 +220,13 @@ public:
 
 protected:
     void run();
-    bool setRunning(bool other) {
+    bool setRunning(bool running) {
         std::scoped_lock lock(m_mutex);
 
-        if (m_running == other) {
+        if (m_running == running) {
             return false;
         }
-
-        m_running = other;
+        m_running = running;
         return true;
     }
 

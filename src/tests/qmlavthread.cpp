@@ -2,13 +2,13 @@
 
 #include "./../qmlavthread.h"
 
-template <typename T>
+template<typename T>
 std::decay_t<T> generic_fn(T t)
 {
     return t;
 }
 
-template <typename T1, typename T2>
+template<typename T1, typename T2>
 decltype(auto) generic_fn2(T1 t1, T2 t2)
 {
     return t1 + t2;
