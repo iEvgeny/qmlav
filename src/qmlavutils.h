@@ -53,22 +53,24 @@ template <typename T> auto asKeyValueRange(const T &iterable) { return KeyValueR
 
 template<typename T,
          std::memory_order StoreOrder = std::memory_order_seq_cst,
-         std::memory_order LoadOrder = StoreOrder,
-         typename __Super = std::atomic<T>>
-struct QmlAVAtomic : __Super
+         std::memory_order LoadOrder = StoreOrder>
+struct QmlAVAtomic
 {
-    constexpr QmlAVAtomic(T value) noexcept : __Super(value) { }
+    constexpr QmlAVAtomic(T value) noexcept : m_value(value) { }
 
-    T get() const noexcept { return __Super::load(LoadOrder); }
+    T get() const noexcept { return m_value.load(LoadOrder); }
     operator T() const noexcept { return get(); }
 
-    T operator=(T i) noexcept { __Super::store(i, StoreOrder); return i; }
-    T operator++(int) noexcept { return __Super::fetch_add(1, StoreOrder); }
-    T operator--(int) noexcept { return __Super::fetch_sub(1, StoreOrder); }
-    T operator++() noexcept { return __Super::fetch_add(1, StoreOrder) + 1; }
-    T operator--() noexcept { return __Super::fetch_sub(1, StoreOrder) - 1; }
+    T operator=(T i) noexcept { m_value.store(i, StoreOrder); return i; }
+    T operator++(int) noexcept { return m_value.fetch_add(1, StoreOrder); }
+    T operator--(int) noexcept { return m_value.fetch_sub(1, StoreOrder); }
+    T operator++() noexcept { return m_value.fetch_add(1, StoreOrder) + 1; }
+    T operator--() noexcept { return m_value.fetch_sub(1, StoreOrder) - 1; }
 
     // TODO: Implement other members as needed
+
+private:
+    std::atomic<T> m_value;
 };
 
 template<typename T, typename __Super = QmlAVAtomic<T, std::memory_order_relaxed>>
