@@ -80,7 +80,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
             return;
         }
 
-        logDebug() << "avformat_open_input() options ignored: " << QmlAV::Quote << dict.getString();
+        logDebug() << "avformat_open_input() options ignored: " << QmlAV::Quote << dict.toString();
 
         ret = avformat_find_stream_info(m_avFormatCtx, nullptr);
         if (ret < 0) {

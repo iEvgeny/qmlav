@@ -67,7 +67,7 @@ bool QmlAVDecoder::open(const AVStream *avStream, const QmlAVOptions &avOptions)
             return false;
         }
 
-        logDebug() << "avcodec_open2() options ignored: " << QmlAV::Quote << opts.getString();
+        logDebug() << "avcodec_open2() options ignored: " << QmlAV::Quote << opts.toString();
 
         m_avStream = avStream;
 
