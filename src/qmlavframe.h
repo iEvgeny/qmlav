@@ -1,7 +1,6 @@
 #ifndef QMLAVFRAME_H
 #define QMLAVFRAME_H
 
-#include <QtCore>
 #include <QVideoFrame>
 #include <QAudioFormat>
 
@@ -20,8 +19,7 @@ public:
         TypeAudio
     };
 
-    QmlAVFrame(const AVFramePtr &avFrame, Type type = TypeUnknown);
-    QmlAVFrame(const QmlAVFrame &other);
+    QmlAVFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder, Type type = TypeUnknown);
     virtual ~QmlAVFrame();
 
     Type type() const { return m_type; }
@@ -35,20 +33,19 @@ public:
     int64_t pts() const;
 
 protected:
-    const auto &decoder() const { return m_decoder; }
-    // NOTE: Creates a new instance of std::shared_ptr
-    template<typename T> std::shared_ptr<T> decoder() const { return std::static_pointer_cast<T>(m_decoder); }
+    auto decoder() const { return m_decoder.get(); }
+    template<typename T> T *decoder() const { return static_cast<T *>(m_decoder.get()); }
 
 private:
-    AVFramePtr m_avFrame;
     Type m_type;
+    AVFramePtr m_avFrame;
     std::shared_ptr<QmlAVDecoder> m_decoder;
 };
 
 class QmlAVVideoFrame final : public QmlAVFrame
 {
 public:
-    QmlAVVideoFrame(const AVFramePtr &avFrame);
+    QmlAVVideoFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder);
 
     bool isValid() const override;
 
@@ -65,7 +62,7 @@ public:
 class QmlAVAudioFrame final : public QmlAVFrame
 {
 public:
-    QmlAVAudioFrame(const AVFramePtr &avFrame);
+    QmlAVAudioFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder);
     ~QmlAVAudioFrame() override;
 
     bool isValid() const override;

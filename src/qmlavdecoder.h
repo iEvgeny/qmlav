@@ -13,14 +13,13 @@ extern "C" {
 
 struct AVCodecContext;
 
+class QmlAVDemuxer;
 class QmlAVOptions;
 class QmlAVFrame;
 class QmlAVHWOutput;
 
-class QmlAVDecoder : public QObject, public std::enable_shared_from_this<QmlAVDecoder>
+class QmlAVDecoder : public std::enable_shared_from_this<QmlAVDecoder>
 {
-    Q_OBJECT
-
 public:
     struct Clock {
         QmlAVReleaseAcquireAtomic<int64_t> startTime = 0;
@@ -42,8 +41,10 @@ public:
         TypeAudio
     };
 
-    QmlAVDecoder(Clock &clock, QObject *parent = nullptr, Type type = TypeUnknown);
+    QmlAVDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer, Type type = TypeUnknown);
     virtual ~QmlAVDecoder();
+
+    QmlAVDemuxer *demuxer() const { return m_demuxer.get(); }
 
     Type type() const { return m_type; }
     QString typeName() const { return m_type == TypeVideo ? "Video" : "Audio"; }
@@ -54,9 +55,6 @@ public:
     const AVStream *stream() const { return m_avStream; }
     int streamIndex() const { return m_avStream ? m_avStream->index : -1; }
 
-    Clock &clock() { return m_clock; }
-    int64_t startTime() const;
-
     bool decodeAVPacket(const AVPacketPtr &avPacket);
 
     void requestInterruption(bool wait = false) { m_thread.requestInterruption(wait); }
@@ -65,7 +63,6 @@ public:
     int packetQueueLength() const { return m_threadTask.argsQueue()->length(); }
     int frameQueueLength() const;
 
-    auto &counters() { return m_counters; }
     const auto &counters() const { return m_counters; }
 
 signals:
@@ -75,7 +72,8 @@ protected:
     QmlAVLoopController worker(const AVPacketPtr &avPacket);
 
     virtual bool initVideoDecoder([[maybe_unused]] const QmlAVOptions &avOptions) { return true; }
-    virtual const std::shared_ptr<QmlAVFrame> frame([[maybe_unused]] const AVFramePtr &avFrame) const {
+    virtual const std::shared_ptr<QmlAVFrame> makeFrame([[maybe_unused]] const AVFramePtr &avFrame,
+                                                        [[maybe_unused]] const std::shared_ptr<QmlAVDecoder> &decoder) const {
         // NOTE: Cannot be pure virtual!
         // A stub method called on an early (static) binding when the destructor is executed.
         return {};
@@ -87,7 +85,7 @@ protected:
 
 private:
     Type m_type;
-    Clock &m_clock;
+    std::shared_ptr<QmlAVDemuxer> m_demuxer;
 
     const AVStream *m_avStream;
 
@@ -96,14 +94,11 @@ private:
 
     Counters m_counters;
 };
-Q_DECLARE_METATYPE(std::shared_ptr<QmlAVFrame>)
 
 class QmlAVVideoDecoder final : public QmlAVDecoder
 {
-    Q_OBJECT
-
 public:
-    QmlAVVideoDecoder(Clock &clock, QObject *parent = nullptr);
+    QmlAVVideoDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer);
     ~QmlAVVideoDecoder() override;
 
     std::shared_ptr<QmlAVHWOutput> hwOutput() const { return m_hwOutput; }
@@ -111,7 +106,7 @@ public:
 protected:
     bool initVideoDecoder(const QmlAVOptions &avOptions) override;
     static AVPixelFormat negotiatePixelFormatCb(struct AVCodecContext *avCodecCtx, const AVPixelFormat *avCodecPixelFormats);
-    const std::shared_ptr<QmlAVFrame> frame(const AVFramePtr &avFrame) const override;
+    const std::shared_ptr<QmlAVFrame> makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder) const override;
 
 private:
     std::shared_ptr<QmlAVHWOutput> m_hwOutput;
@@ -119,15 +114,13 @@ private:
 
 class QmlAVAudioDecoder final : public QmlAVDecoder
 {
-    Q_OBJECT
-
 public:
-    QmlAVAudioDecoder(Clock &clock, QObject *parent = nullptr);
+    QmlAVAudioDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer);
 
     auto &resampler() { return m_resampler; }
 
 protected:
-    std::shared_ptr<QmlAVFrame> const frame(const AVFramePtr &avFrame) const override;
+    std::shared_ptr<QmlAVFrame> const makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder) const override;
 
 private:
     QmlAVResampler m_resampler;

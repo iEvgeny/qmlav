@@ -45,18 +45,22 @@ private:
 };
 
 // NOTE: Public API for GUI thread only!
-class QmlAVDemuxer : public QObject
+class QmlAVDemuxer : public QObject, public std::enable_shared_from_this<QmlAVDemuxer>
 {
     Q_OBJECT
 
+    QmlAVDemuxer(QObject *parent = nullptr);
+    void makeDecoders();
+
 public:
-    explicit QmlAVDemuxer(QObject *parent = nullptr);
+    static std::shared_ptr<QmlAVDemuxer> makeShared();
     virtual ~QmlAVDemuxer();
 
     void load(const QUrl &url, const QmlAVOptions &avOptions);
     void start();
 
     const auto &clock() const { return m_clock; }
+    int64_t startTime() const;
 
     QVariantMap stat() const;
 
@@ -66,9 +70,13 @@ signals:
     void frameFinished(const std::shared_ptr<QmlAVFrame> frame);
 
 protected:
+    auto &clock() { return m_clock; }
+
     bool isRealTime(QUrl url) const;
     bool isLoaded() const { return m_videoDecoder->isOpen() || m_audioDecoder->isOpen(); }
     void initDecoders(const QmlAVOptions &avOptions);
+
+    void frameHandler(const std::shared_ptr<QmlAVFrame> frame);
     
 private:
     AVFormatContext *m_avFormatCtx;
@@ -77,10 +85,14 @@ private:
     QmlAVThreadLiveController<void> m_loaderThread;
     QmlAVThreadLiveController<QmlAVLoopController> m_demuxerThread;
 
-    QmlAVDecoder::Clock m_clock;
-    // We need more control over the decoder's lifetime since it can be used in another thread
+    mutable QmlAVDecoder::Clock m_clock;
+
     std::shared_ptr<QmlAVVideoDecoder> m_videoDecoder;
     std::shared_ptr<QmlAVAudioDecoder> m_audioDecoder;
+
+    friend class QmlAVDecoder;
+    friend class QmlAVFrame;
 };
+Q_DECLARE_METATYPE(std::shared_ptr<QmlAVFrame>)
 
 #endif // QMLAVDEMUXER_H

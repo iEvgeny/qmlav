@@ -5,7 +5,6 @@ extern "C" {
 #include <libavformat/avformat.h>
 }
 
-#include <QtCore>
 #include <QVideoFrame>
 #include <QVideoSurfaceFormat>
 #include <QAudioOutput>

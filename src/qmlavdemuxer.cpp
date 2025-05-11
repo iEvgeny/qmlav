@@ -8,11 +8,20 @@ extern "C" {
 QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     : QObject(parent)
     , m_avFormatCtx(nullptr)
-    , m_videoDecoder(std::make_shared<QmlAVVideoDecoder>(m_clock))
-    , m_audioDecoder(std::make_shared<QmlAVAudioDecoder>(m_clock))
 {
-    connect(m_videoDecoder.get(), &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
-    connect(m_audioDecoder.get(), &QmlAVDecoder::frameFinished, this, &QmlAVDemuxer::frameFinished);
+}
+
+void QmlAVDemuxer::makeDecoders()
+{
+    m_videoDecoder = std::make_shared<QmlAVVideoDecoder>(shared_from_this());
+    m_audioDecoder = std::make_shared<QmlAVAudioDecoder>(shared_from_this());
+}
+
+std::shared_ptr<QmlAVDemuxer> QmlAVDemuxer::makeShared()
+{
+    auto demuxer = std::shared_ptr<QmlAVDemuxer>(new QmlAVDemuxer());
+    demuxer->makeDecoders();
+    return demuxer;
 }
 
 QmlAVDemuxer::~QmlAVDemuxer()
@@ -165,6 +174,16 @@ void QmlAVDemuxer::start()
     });
 }
 
+
+int64_t QmlAVDemuxer::startTime() const
+{
+    if (m_clock.startTime == 0) {
+        m_clock.startTime = QmlAVDecoder::Clock::now();
+    }
+
+    return m_clock.startTime;
+}
+
 QVariantMap QmlAVDemuxer::stat() const
 {
     auto &vc = m_videoDecoder->counters();
@@ -207,4 +226,9 @@ void QmlAVDemuxer::initDecoders(const QmlAVOptions &avOptions)
             logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_audioDecoder->name()).arg(bestAudioStream);
         }
     }
+}
+
+void QmlAVDemuxer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
+{
+    emit frameFinished(frame);
 }

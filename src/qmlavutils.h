@@ -159,7 +159,7 @@ public:
     }
     void unref() { av_unref(m_ref); }
 
-    explicit operator bool() const noexcept { return m_ref != nullptr; }
+    explicit operator bool() const noexcept { return m_ref && m_ref->data; }
     operator T *() const noexcept { return m_ref; }
     T *operator->() const noexcept { return m_ref; }
     T &operator*() const noexcept { return *m_ref; }

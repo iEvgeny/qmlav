@@ -58,7 +58,7 @@ public:
     LIBAVFORMAT_CONST AVInputFormat *avInputFormat() const;
     AVHWDeviceType avHWDeviceType() const;
     std::shared_ptr<QmlAVHWOutput> hwOutput() const;
-    const AVCodec *avCodec(const AVStream *avStream) const;
+    const AVCodec *avCodec(const AVCodecParameters *avCodecPar) const;
     uint32_t demuxerTimeout() const;
     bool videoDisable() const;
     bool audioDisable() const;

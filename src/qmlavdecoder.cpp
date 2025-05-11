@@ -1,4 +1,5 @@
 #include "qmlavdecoder.h"
+#include "qmlavdemuxer.h"
 #include "qmlavoptions.h"
 #include "qmlavframe.h"
 #include "qmlavhwoutput.h"
@@ -13,17 +14,16 @@ extern "C" {
 #define VIDEO_FRAMES_LIMIT 8
 #define AUDIO_FRAMES_LIMIT 32
 
-QmlAVDecoder::QmlAVDecoder(Clock &clock, QObject *parent, Type type)
-    : QObject(parent)
-    , m_avCodecCtx(nullptr)
+QmlAVDecoder::QmlAVDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer, Type type)
+    : m_avCodecCtx(nullptr)
     , m_type(type)
-    , m_clock(clock)
+    , m_demuxer(demuxer)
     , m_avStream(nullptr)
     , m_threadTask(&QmlAVDecoder::worker)
 {
     qRegisterMetaType<std::shared_ptr<QmlAVFrame>>();
 
-    m_thread = m_threadTask.getLiveController();   
+    m_thread = m_threadTask.getLiveController();
     m_threadTask.argsQueue()->setProducerLimit(PACKETS_LIMIT);
 }
 
@@ -42,7 +42,7 @@ bool QmlAVDecoder::open(const AVStream *avStream, const QmlAVOptions &avOptions)
         return false;
     }
 
-    const AVCodec *codec = avOptions.avCodec(avStream);
+    const AVCodec *codec = avOptions.avCodec(avStream->codecpar);
     if (codec) {
         m_avCodecCtx = avcodec_alloc_context3(codec);
         if (!m_avCodecCtx) {
@@ -85,15 +85,6 @@ bool QmlAVDecoder::isOpen() const
 QString QmlAVDecoder::name() const
 {
     return isOpen() ? m_avCodecCtx->codec->name : "";
-}
-
-int64_t QmlAVDecoder::startTime() const
-{
-    if (m_clock.startTime == 0) {
-        m_clock.startTime = Clock::now();
-    }
-
-    return m_clock.startTime;
 }
 
 bool QmlAVDecoder::decodeAVPacket(const AVPacketPtr &avPacket)
@@ -140,16 +131,14 @@ QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
     } else {
         if (m_frameQueueLimit.addValue(frameQueueLength())) {
 
-            avFrame->opaque = this;
-
-            auto f = frame(avFrame);
+            auto f = makeFrame(avFrame, shared_from_this());
             if (f && f->isValid()) {
                 m_counters.framesDecoded++;
-                emit frameFinished(f);
+                m_demuxer->frameHandler(f);
 
-                if (!m_clock.realTime) {
+                if (!m_demuxer->clock().realTime) {
                     // Primitive syncing for local playback
-                    auto presentTime = startTime() + f->pts() - f->startPts();
+                    auto presentTime = m_demuxer->startTime() + f->pts() - f->startPts();
                     return QmlAVLoopController(QmlAVLoopController::Retry, presentTime - Clock::now());
                 }
             }
@@ -162,8 +151,8 @@ QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
     return QmlAVLoopController::Retry;
 }
 
-QmlAVVideoDecoder::QmlAVVideoDecoder(Clock &clock, QObject *parent)
-    : QmlAVDecoder(clock, parent, TypeVideo)
+QmlAVVideoDecoder::QmlAVVideoDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer)
+    : QmlAVDecoder(demuxer)
 {   
     m_frameQueueLimit.setLimit(VIDEO_FRAMES_LIMIT);
 }
@@ -240,18 +229,18 @@ AVPixelFormat QmlAVVideoDecoder::negotiatePixelFormatCb(AVCodecContext *avCodecC
     return *avCodecPixelFormats;
 }
 
-const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::frame(const AVFramePtr &avFrame) const
+const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder) const
 {
-    return std::make_shared<QmlAVVideoFrame>(avFrame);
+    return std::make_shared<QmlAVVideoFrame>(avFrame, decoder);
 }
 
-QmlAVAudioDecoder::QmlAVAudioDecoder(Clock &clock, QObject *parent)
-    : QmlAVDecoder(clock, parent, TypeAudio)
+QmlAVAudioDecoder::QmlAVAudioDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer)
+    : QmlAVDecoder(demuxer)
 {
     m_frameQueueLimit.setLimit(AUDIO_FRAMES_LIMIT);
 }
 
-const std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::frame(const AVFramePtr &avFrame) const
+const std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder) const
 {
-    return std::make_shared<QmlAVAudioFrame>(avFrame);
+    return std::make_shared<QmlAVAudioFrame>(avFrame, decoder);
 }

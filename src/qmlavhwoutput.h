@@ -1,7 +1,6 @@
 #ifndef QMLAVHWOUTPUT_H
 #define QMLAVHWOUTPUT_H
 
-#include <QtCore>
 #include <QAbstractVideoBuffer>
 
 #include "qmlavutils.h"

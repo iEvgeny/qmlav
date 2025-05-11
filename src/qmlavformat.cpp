@@ -1,5 +1,7 @@
 #include "qmlavformat.h"
 
+#include <QDebug>
+
 #include <unordered_map>
 
 extern "C" {

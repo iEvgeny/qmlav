@@ -1,5 +1,6 @@
 #include "qmlavframe.h"
 #include "qmlavdecoder.h"
+#include "qmlavdemuxer.h"
 #include "qmlavutils.h"
 #include "qmlavvideobuffer.h"
 
@@ -9,42 +10,37 @@ extern "C" {
 
 #define AUDIO_LATENCY_LIMIT 300000 // 300 ms
 
-QmlAVFrame::QmlAVFrame(const AVFramePtr &avFrame, Type type)
-    : m_avFrame(avFrame)
-    , m_type(type)
+QmlAVFrame::QmlAVFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder, Type type)
+    : m_type(type)
+    , m_avFrame(avFrame)
+    , m_decoder(decoder)
 {
-    assert(m_avFrame && m_avFrame->opaque);
-
-    // NOTE: shared_from_this() throws an exception when the QmlAVDecoder destructor is executed,
-    // while weak_from_this().lock() constructs an empty std::shared_ptr<QmlAVDecoder>.
-    m_decoder = static_cast<QmlAVDecoder *>(m_avFrame->opaque)->weak_from_this().lock();
+    assert(m_avFrame && m_decoder);
 }
-
-QmlAVFrame::QmlAVFrame(const QmlAVFrame &other) : QmlAVFrame(other.m_avFrame, other.m_type) { }
 
 QmlAVFrame::~QmlAVFrame()
 {
-    assert(m_decoder);
-    m_decoder->clock().leftPts = pts();
+    if (m_decoder) {
+        m_decoder->demuxer()->clock().leftPts = pts();
+    }
 }
 
 int64_t QmlAVFrame::startTime() const
 {
     assert(m_decoder);
-    return m_decoder->startTime();
+    return m_decoder->demuxer()->startTime();
 }
 
 double QmlAVFrame::timeBaseUs() const
 {
     assert(m_decoder);
-    return av_q2d(m_decoder->stream()->time_base) * 1E6;
+    return av_q2d(m_decoder->stream()->time_base) * AV_TIME_BASE;
 }
 
 // PTS of the first frame of the stream in presentation order
 int64_t QmlAVFrame::startPts() const
 {
     assert(m_decoder);
-
     auto startPts = m_decoder->stream()->start_time;
     if (startPts != AV_NOPTS_VALUE) {
         return startPts * timeBaseUs();
@@ -65,8 +61,8 @@ int64_t QmlAVFrame::pts() const
     return pts * timeBaseUs();
 }
 
-QmlAVVideoFrame::QmlAVVideoFrame(const AVFramePtr &avFrame)
-    : QmlAVFrame(avFrame, TypeVideo)
+QmlAVVideoFrame::QmlAVVideoFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder)
+    : QmlAVFrame(avFrame, decoder, TypeVideo)
 {
 }
 
@@ -133,8 +129,8 @@ QmlAVVideoFrame::operator QVideoFrame() const
     }
 }
 
-QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
-    : QmlAVFrame(avFrame, TypeAudio)
+QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder)
+    : QmlAVFrame(avFrame, decoder, TypeAudio)
     , m_buffer(nullptr)
     , m_dataBegin(0)
     , m_dataSize(0)
@@ -142,7 +138,8 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
     if (isValid()) {
         double compensationFactor = 1.0;
 
-        int64_t leftPts =  decoder()->clock().leftPts;
+        const QmlAVDemuxer *demuxer = QmlAVFrame::decoder()->demuxer();
+        int64_t leftPts = demuxer->clock().leftPts;
         if (leftPts) {
             auto delta = pts() - leftPts;
             if (delta > AUDIO_LATENCY_LIMIT) {
@@ -150,7 +147,7 @@ QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame)
             }
         }
 
-        auto &resampler = decoder<QmlAVAudioDecoder>()->resampler();
+        auto &resampler = QmlAVFrame::decoder<QmlAVAudioDecoder>()->resampler();
         m_dataSize =  resampler.convert(&m_buffer, *this, compensationFactor);
     }
 }

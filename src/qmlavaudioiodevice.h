@@ -2,8 +2,9 @@
 #define QMLAVAUDIOIODEVICE_H
 
 #include <deque>
+#include <memory>
 
-#include <QtCore>
+#include <QIODevice>
 
 #define PA_PREBUF_SIZE 32768
 

@@ -5,8 +5,6 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 
-#include "qmlavutils.h"
-
 struct SwrContext;
 
 class QmlAVAudioFrame;

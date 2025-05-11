@@ -77,15 +77,15 @@ std::shared_ptr<QmlAVHWOutput> QmlAVOptions::hwOutput() const
     return hwOutput;
 }
 
-const AVCodec *QmlAVOptions::avCodec(const AVStream *avStream) const
+const AVCodec *QmlAVOptions::avCodec(const AVCodecParameters *avCodecPar) const
 {
     std::vector<std::string> opts;
 
-    if (!avStream) {
+    if (!avCodecPar) {
         return nullptr;
     }
 
-    switch (avStream->codecpar->codec_type) {
+    switch (avCodecPar->codec_type) {
     case AVMEDIA_TYPE_VIDEO:
         opts = {"vcodec", "codec:v", "c:v"};
         break;
@@ -105,7 +105,7 @@ const AVCodec *QmlAVOptions::avCodec(const AVStream *avStream) const
     });
 
     if (!forced) {
-        codec = avcodec_find_decoder(avStream->codecpar->codec_id);
+        codec = avcodec_find_decoder(avCodecPar->codec_id);
         if (!codec) {
             logWarning() << "Unable find decoder";
         }
