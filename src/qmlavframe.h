@@ -1,6 +1,8 @@
 #ifndef QMLAVFRAME_H
 #define QMLAVFRAME_H
 
+#include <memory>
+
 #include <QVideoFrame>
 #include <QAudioFormat>
 
