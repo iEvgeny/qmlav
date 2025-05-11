@@ -6,6 +6,7 @@
 #include <QAbstractVideoSurface>
 #include <QVideoSurfaceFormat>
 #include <QAudioOutput>
+#include <QTimer>
 
 #include "qmlavframe.h"
 #include "qmlavdemuxer.h"
@@ -17,7 +18,7 @@ class QmlAVPlayer : public QObject, public QQmlParserStatus
     Q_OBJECT
     Q_INTERFACES(QQmlParserStatus)
 
-    Q_PROPERTY(QAbstractVideoSurface *videoSurface READ videoSurface WRITE setVideoSurface CONSTANT)
+    Q_PROPERTY(QAbstractVideoSurface *videoSurface READ videoSurface WRITE setVideoSurface)
 
     QMLAV_PROPERTY_DECL(QVariantMap, avOptions, setAVOptions, avOptionsChanged);
     QMLAV_PROPERTY_DECL(bool, autoLoad, setAutoLoad, autoLoadChanged) = true;

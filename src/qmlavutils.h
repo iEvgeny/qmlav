@@ -8,7 +8,7 @@ extern "C" {
 
 #include <cxxabi.h>
 
-#include <QtCore>
+#include <QLoggingCategory>
 
 // Compat
 #if (LIBAVFORMAT_VERSION_MAJOR < 59)

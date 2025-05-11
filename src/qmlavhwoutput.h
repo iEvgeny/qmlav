@@ -28,6 +28,7 @@ public:
 };
 
 #if defined(__linux__) && !defined(__ANDROID__)
+#include <QEvent> // Must be included first due to conflict with X11/X.h
 #include <GL/glx.h>
 
 class QmlAVHWOutput_VAAPI_GLX final : public QmlAVHWOutput
