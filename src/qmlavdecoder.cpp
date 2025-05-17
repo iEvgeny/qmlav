@@ -29,7 +29,7 @@ QmlAVDecoder::QmlAVDecoder(QmlAVMediaContextHolder *context, Type type)
 
 QmlAVDecoder::~QmlAVDecoder()
 {
-    m_thread.requestInterruption(true);
+    m_thread.requestInterrupt(true);
     avcodec_free_context(&m_avCodecCtx);
 }
 

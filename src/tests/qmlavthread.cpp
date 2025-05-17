@@ -130,7 +130,7 @@ TEST(QmlAVThread, QmlAVTask_GenericFunction)
 
     EXPECT_EQ(c.result(), 42);
 
-    c.requestInterruption(true);
+    c.requestInterrupt(true);
 }
 
 TEST(QmlAVThread, QmlAVTask_ClassMember)
@@ -144,7 +144,7 @@ TEST(QmlAVThread, QmlAVTask_ClassMember)
 
     EXPECT_EQ(c.result(), 42);
 
-    c.requestInterruption(true);
+    c.requestInterrupt(true);
 }
 
 TEST(QmlAVThread, QmlAVTask_Functor)
@@ -156,7 +156,7 @@ TEST(QmlAVThread, QmlAVTask_Functor)
 
     EXPECT_EQ(c.result(), 42);
 
-    c.requestInterruption(true);
+    c.requestInterrupt(true);
 }
 
 TEST(QmlAVThread, QmlAVTask_Retry)
@@ -200,5 +200,5 @@ TEST(QmlAVThread, QmlAVTask_DemuxerDecoderThreadModel)
         EXPECT_EQ(decoderThread.result(), 42);
     }
 
-    decoderThread.requestInterruption(true);
+    decoderThread.requestInterrupt(true);
 }

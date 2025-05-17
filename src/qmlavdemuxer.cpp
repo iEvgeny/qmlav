@@ -15,12 +15,12 @@ QmlAVDemuxer::~QmlAVDemuxer()
 {
     m_interruptCallback.requestAVInterrupt();
 
-    m_loaderThread.requestInterruption(true);
-    m_demuxerThread.requestInterruption(true);
+    m_loaderThread.requestInterrupt(true);
+    m_demuxerThread.requestInterrupt(true);
 
     // Important! Serialization point for decoders dtor's
-    m_context->videoDecoder->requestInterruption(true);
-    m_context->audioDecoder->requestInterruption(true);
+    m_context->videoDecoder->requestInterrupt(true);
+    m_context->audioDecoder->requestInterrupt(true);
 }
 
 void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)

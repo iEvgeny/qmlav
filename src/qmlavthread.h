@@ -44,7 +44,7 @@ public:
 
     virtual QmlAVLoopController invoke() = 0;
     virtual void *results() { return nullptr; }
-    virtual void requestInterruption() { }
+    virtual void requestInterrupt() { }
 };
 
 template<typename Callable, typename Result = QmlAVUtils::InvokeResult<Callable>>
@@ -60,7 +60,7 @@ public:
         return nullptr;
     }
 
-    virtual void requestInterruption() override {
+    virtual void requestInterrupt() override {
         m_results.setConsumerLimit(0);
     }
 
@@ -171,12 +171,12 @@ public:
         return QmlAVLoopController::Continue;
     }
 
-    virtual void requestInterruption() override final {
+    virtual void requestInterrupt() override final {
         if (m_argsQueue) {
             m_argsQueue->setConsumerLimit(0);
         }
 
-        __Super::requestInterruption();
+        __Super::requestInterrupt();
     }
 
 private:
@@ -188,7 +188,7 @@ class QmlAVWorkerThread
 public:
     QmlAVWorkerThread(std::unique_ptr<QmlAVAbstractWorker> worker)
         : m_running(false)
-        , m_loopInterruptionRequested(false)
+        , m_loopInterruptRequested(false)
         , m_worker(std::move(worker)) { }
 
     void start() {
@@ -208,7 +208,7 @@ public:
         std::scoped_lock lock(m_mutex);
         return m_running;
     }
-    void requestInterruption();
+    void requestInterrupt();
 
     void *results() {
         if (m_worker) {
@@ -235,7 +235,7 @@ private:
     std::condition_variable m_waitCond;
 
     bool m_running;
-    std::atomic<bool> m_loopInterruptionRequested;
+    std::atomic<bool> m_loopInterruptRequested;
 
     std::unique_ptr<QmlAVAbstractWorker> m_worker;
 };
@@ -256,15 +256,15 @@ public:
                 logWarning() << "Attempting to destroy an object of a running thread!";
             }
 
-            requestInterruption(true);
+            requestInterrupt(true);
         }
     }
 
-    void requestInterruption(bool wait = false) {
-        logDebug() << QString("requestInterruption(wait=%1)").arg(wait);
+    void requestInterrupt(bool wait = false) {
+        logDebug() << QString("requestInterrupt(wait=%1)").arg(wait);
 
         if (m_thread) {
-            m_thread->requestInterruption();
+            m_thread->requestInterrupt();
 
             if (wait) {
                 m_thread->wait();
