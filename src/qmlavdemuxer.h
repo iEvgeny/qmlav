@@ -58,7 +58,7 @@ public:
     void start();
 
     const auto &clock() const { return m_context->clock; }
-    int64_t startTime() const { return m_context->clock.startTime; }
+    int64_t startTime() const;
 
     QVariantMap stat() const;
 

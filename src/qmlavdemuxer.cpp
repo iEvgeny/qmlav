@@ -153,6 +153,15 @@ void QmlAVDemuxer::start()
     });
 }
 
+int64_t QmlAVDemuxer::startTime() const
+{
+    if (m_context->clock.startTime == 0) {
+        m_context->clock.startTime = QmlAVDecoder::Clock::now();
+    }
+
+    return m_context->clock.startTime;
+}
+
 QVariantMap QmlAVDemuxer::stat() const
 {
     auto &vc = m_context->videoDecoder->counters();
@@ -199,9 +208,5 @@ void QmlAVDemuxer::initDecoders(const QmlAVOptions &avOptions)
 
 void QmlAVDemuxer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
 {
-    if (m_context->clock.startTime == 0) {
-        m_context->clock.startTime = QmlAVDecoder::Clock::now();
-    }
-
     emit frameFinished(frame);
 }
