@@ -3,6 +3,7 @@
 QmlAVPlayer::QmlAVPlayer(QObject *parent)
     : QObject(parent)
     , m_complete(false)
+    , m_demuxer(nullptr)
     , m_videoSurface(nullptr)
     , m_audioOutput(nullptr)
 {
@@ -42,8 +43,9 @@ void QmlAVPlayer::stop()
     logDebug() << "stop()";
 
     if (m_demuxer) {
-        disconnect(m_demuxer.get(), nullptr, this, nullptr);
-        m_demuxer.reset();
+        disconnect(m_demuxer, nullptr, this, nullptr);
+        delete m_demuxer;
+        m_demuxer = nullptr;
     }
 
     if (m_videoSurface && m_videoSurface->isActive()) {
@@ -221,11 +223,11 @@ void QmlAVPlayer::setVolume(QmlAVPropertyType<double> volume)
 bool QmlAVPlayer::load()
 {
     if (!m_demuxer && m_source.isValid()) {
-        m_demuxer = QmlAVDemuxer::makeShared();
+        m_demuxer = new QmlAVDemuxer();
 
-        connect(m_demuxer.get(), &QmlAVDemuxer::frameFinished, this, &QmlAVPlayer::frameHandler);
-        connect(m_demuxer.get(), &QmlAVDemuxer::playbackStateChanged, this, &QmlAVPlayer::setPlaybackState);
-        connect(m_demuxer.get(), &QmlAVDemuxer::mediaStatusChanged, this, &QmlAVPlayer::setStatus);
+        connect(m_demuxer, &QmlAVDemuxer::frameFinished, this, &QmlAVPlayer::frameHandler);
+        connect(m_demuxer, &QmlAVDemuxer::playbackStateChanged, this, &QmlAVPlayer::setPlaybackState);
+        connect(m_demuxer, &QmlAVDemuxer::mediaStatusChanged, this, &QmlAVPlayer::setStatus);
 
         m_demuxer->load(m_source, m_avOptions);
 

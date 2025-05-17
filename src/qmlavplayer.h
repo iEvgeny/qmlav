@@ -59,7 +59,7 @@ protected:
 
 private:
     bool m_complete;
-    std::shared_ptr<QmlAVDemuxer> m_demuxer;
+    QmlAVDemuxer *m_demuxer;
     QAbstractVideoSurface *m_videoSurface;
     QTimer m_playTimer;
 

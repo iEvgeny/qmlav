@@ -7,21 +7,8 @@ extern "C" {
 
 QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
     : QObject(parent)
-    , m_avFormatCtx(nullptr)
+    , m_context(std::make_shared<QmlAVMediaContextHolder>(this))
 {
-}
-
-void QmlAVDemuxer::makeDecoders()
-{
-    m_videoDecoder = std::make_shared<QmlAVVideoDecoder>(shared_from_this());
-    m_audioDecoder = std::make_shared<QmlAVAudioDecoder>(shared_from_this());
-}
-
-std::shared_ptr<QmlAVDemuxer> QmlAVDemuxer::makeShared()
-{
-    auto demuxer = std::shared_ptr<QmlAVDemuxer>(new QmlAVDemuxer());
-    demuxer->makeDecoders();
-    return demuxer;
 }
 
 QmlAVDemuxer::~QmlAVDemuxer()
@@ -31,11 +18,9 @@ QmlAVDemuxer::~QmlAVDemuxer()
     m_loaderThread.requestInterruption(true);
     m_demuxerThread.requestInterruption(true);
 
-    // Serialization point for decoders dtor's
-    m_videoDecoder->requestInterruption(true);
-    m_audioDecoder->requestInterruption(true);
-
-    avformat_close_input(&m_avFormatCtx);
+    // Important! Serialization point for decoders dtor's
+    m_context->videoDecoder->requestInterruption(true);
+    m_context->audioDecoder->requestInterruption(true);
 }
 
 void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
@@ -43,7 +28,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
     int ret = AVERROR_UNKNOWN;
     QString source(url.toString());
 
-    if (m_avFormatCtx) {
+    if (m_context->avFormatCtx->iformat) {
         return;
     }
 
@@ -64,22 +49,16 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
     avformat_network_init();
 #endif
 
-    m_avFormatCtx = avformat_alloc_context();
-    if (!m_avFormatCtx) {
-        logWarning() << "Could not allocate AVFormatContext";
-        return;
-    }
-
-    m_clock.realTime = avOptions.realTime().value_or(isRealTime(url));
+    m_context->clock.realTime = avOptions.realTime().value_or(isRealTime(url));
 
     m_interruptCallback.setTimeout(avOptions.demuxerTimeout());
-    m_avFormatCtx->interrupt_callback = m_interruptCallback;
+    m_context->avFormatCtx->interrupt_callback = m_interruptCallback;
 
     emit mediaStatusChanged(QMediaPlayer::LoadingMedia);
 
     m_loaderThread = QmlAVThread::run([=]() mutable {
         AVDictionaryPtr dict = static_cast<AVDictionaryPtr>(avOptions);
-        ret = avformat_open_input(&m_avFormatCtx,
+        ret = avformat_open_input(&m_context->avFormatCtx,
                                   source.toUtf8(),
                                   avOptions.avInputFormat(),
                                   dict);
@@ -91,7 +70,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
 
         logDebug() << "avformat_open_input() options ignored: " << QmlAV::Quote << dict.toString();
 
-        ret = avformat_find_stream_info(m_avFormatCtx, nullptr);
+        ret = avformat_find_stream_info(m_context->avFormatCtx, nullptr);
         if (ret < 0) {
             logWarning() << QString("Cannot find stream information: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
             emit mediaStatusChanged(QMediaPlayer::InvalidMedia);
@@ -100,7 +79,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
 
         logDebug() << "--- DUMP FORMAT BEGIN ---";
         if (QmlAVUtils::loggingCategory().isDebugEnabled()) {
-            av_dump_format(m_avFormatCtx, 0, source.toUtf8(), 0);
+            av_dump_format(m_context->avFormatCtx, 0, source.toUtf8(), 0);
         }
         logDebug() << "--- DUMP FORMAT END ---";
 
@@ -121,7 +100,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
 
 void QmlAVDemuxer::start()
 {
-    if (!m_avFormatCtx || m_demuxerThread.isRunning()) {
+    if (m_demuxerThread.isRunning()) {
         return;
     }
 
@@ -145,11 +124,11 @@ void QmlAVDemuxer::start()
 
         m_interruptCallback.resetTimer();
 
-        ret = av_read_frame(m_avFormatCtx, avPacket);
+        ret = av_read_frame(m_context->avFormatCtx, avPacket);
         if (ret < 0) {
             if (ret == AVERROR_EOF) {
-                m_videoDecoder->waitForEmptyPacketQueue();
-                m_audioDecoder->waitForEmptyPacketQueue();
+                m_context->videoDecoder->waitForEmptyPacketQueue();
+                m_context->audioDecoder->waitForEmptyPacketQueue();
 
                 logDebug() << "End of media";
                 return stop(QMediaPlayer::EndOfMedia);
@@ -162,10 +141,10 @@ void QmlAVDemuxer::start()
             return stop();
         }
 
-        if (avPacket->stream_index == m_videoDecoder->streamIndex()) {
-            m_videoDecoder->decodeAVPacket(avPacket) || stop();
-        } else if (avPacket->stream_index == m_audioDecoder->streamIndex()) {
-            m_audioDecoder->decodeAVPacket(avPacket) || stop();
+        if (avPacket->stream_index == m_context->videoDecoder->streamIndex()) {
+            m_context->videoDecoder->decodeAVPacket(avPacket) || stop();
+        } else if (avPacket->stream_index == m_context->audioDecoder->streamIndex()) {
+            m_context->audioDecoder->decodeAVPacket(avPacket) || stop();
         } else {
             return 1; // Minimal sleep time
         }
@@ -174,20 +153,10 @@ void QmlAVDemuxer::start()
     });
 }
 
-
-int64_t QmlAVDemuxer::startTime() const
-{
-    if (m_clock.startTime == 0) {
-        m_clock.startTime = QmlAVDecoder::Clock::now();
-    }
-
-    return m_clock.startTime;
-}
-
 QVariantMap QmlAVDemuxer::stat() const
 {
-    auto &vc = m_videoDecoder->counters();
-    auto &ac = m_audioDecoder->counters();
+    auto &vc = m_context->videoDecoder->counters();
+    auto &ac = m_context->audioDecoder->counters();
     return {
         { "videoPacketsDecoded", vc.packetsDecoded.get() },
         { "videoFramesDecoded", vc.framesDecoded.get() },
@@ -213,22 +182,26 @@ bool QmlAVDemuxer::isRealTime(QUrl url) const
 
 void QmlAVDemuxer::initDecoders(const QmlAVOptions &avOptions)
 {
-    int bestVideoStream = av_find_best_stream(m_avFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+    int bestVideoStream = av_find_best_stream(m_context->avFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
     if (bestVideoStream >= 0 && !avOptions.videoDisable()) {
-        if (m_videoDecoder->open(m_avFormatCtx->streams[bestVideoStream], avOptions)) {
-            logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_videoDecoder->name()).arg(bestVideoStream);
+        if (m_context->videoDecoder->open(m_context->avFormatCtx->streams[bestVideoStream], avOptions)) {
+            logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_context->videoDecoder->name()).arg(bestVideoStream);
         }
     }
 
-    int bestAudioStream = av_find_best_stream(m_avFormatCtx, AVMEDIA_TYPE_AUDIO, -1, bestVideoStream, nullptr, 0);
+    int bestAudioStream = av_find_best_stream(m_context->avFormatCtx, AVMEDIA_TYPE_AUDIO, -1, bestVideoStream, nullptr, 0);
     if (bestAudioStream >= 0 && !avOptions.audioDisable()) {
-        if (m_audioDecoder->open(m_avFormatCtx->streams[bestAudioStream], avOptions)) {
-            logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_audioDecoder->name()).arg(bestAudioStream);
+        if (m_context->audioDecoder->open(m_context->avFormatCtx->streams[bestAudioStream], avOptions)) {
+            logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_context->audioDecoder->name()).arg(bestAudioStream);
         }
     }
 }
 
 void QmlAVDemuxer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
 {
+    if (m_context->clock.startTime == 0) {
+        m_context->clock.startTime = QmlAVDecoder::Clock::now();
+    }
+
     emit frameFinished(frame);
 }

@@ -14,10 +14,10 @@ extern "C" {
 #define VIDEO_FRAMES_LIMIT 8
 #define AUDIO_FRAMES_LIMIT 32
 
-QmlAVDecoder::QmlAVDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer, Type type)
+QmlAVDecoder::QmlAVDecoder(QmlAVMediaContextHolder *context, Type type)
     : m_avCodecCtx(nullptr)
     , m_type(type)
-    , m_demuxer(demuxer)
+    , m_context(context)
     , m_avStream(nullptr)
     , m_threadTask(&QmlAVDecoder::worker)
 {
@@ -30,7 +30,6 @@ QmlAVDecoder::QmlAVDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer, Type ty
 QmlAVDecoder::~QmlAVDecoder()
 {
     m_thread.requestInterruption(true);
-
     avcodec_free_context(&m_avCodecCtx);
 }
 
@@ -99,8 +98,8 @@ bool QmlAVDecoder::decodeAVPacket(const AVPacketPtr &avPacket)
 
 int QmlAVDecoder::frameQueueLength() const
 {
-    // Each frame contains a decoder instance during its lifetime
-    auto length = weak_from_this().use_count() - 1;
+    // Each frame contains a QmlAVMediaContextHolder instance during its lifetime
+    auto length = m_context->weak_from_this().use_count() - 1;
     return std::max<int>(0, length);
 }
 
@@ -131,14 +130,14 @@ QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
     } else {
         if (m_frameQueueLimit.addValue(frameQueueLength())) {
 
-            auto f = makeFrame(avFrame, shared_from_this());
+            auto f = makeFrame(avFrame, m_context->shared_from_this());
             if (f && f->isValid()) {
                 m_counters.framesDecoded++;
-                m_demuxer->frameHandler(f);
+                m_context->demuxer->frameHandler(f);
 
-                if (!m_demuxer->clock().realTime) {
+                if (!m_context->clock.realTime) {
                     // Primitive syncing for local playback
-                    auto presentTime = m_demuxer->startTime() + f->pts() - f->startPts();
+                    auto presentTime = m_context->demuxer->startTime() + f->pts() - f->startPts();
                     return QmlAVLoopController(QmlAVLoopController::Retry, presentTime - Clock::now());
                 }
             }
@@ -151,8 +150,8 @@ QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
     return QmlAVLoopController::Retry;
 }
 
-QmlAVVideoDecoder::QmlAVVideoDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer)
-    : QmlAVDecoder(demuxer)
+QmlAVVideoDecoder::QmlAVVideoDecoder(QmlAVMediaContextHolder *context)
+    : QmlAVDecoder(context)
 {   
     m_frameQueueLimit.setLimit(VIDEO_FRAMES_LIMIT);
 }
@@ -229,18 +228,18 @@ AVPixelFormat QmlAVVideoDecoder::negotiatePixelFormatCb(AVCodecContext *avCodecC
     return *avCodecPixelFormats;
 }
 
-const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder) const
+const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMediaContextHolder> &context) const
 {
-    return std::make_shared<QmlAVVideoFrame>(avFrame, decoder);
+    return std::make_shared<QmlAVVideoFrame>(avFrame, context);
 }
 
-QmlAVAudioDecoder::QmlAVAudioDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer)
-    : QmlAVDecoder(demuxer)
+QmlAVAudioDecoder::QmlAVAudioDecoder(QmlAVMediaContextHolder *context)
+    : QmlAVDecoder(context)
 {
     m_frameQueueLimit.setLimit(AUDIO_FRAMES_LIMIT);
 }
 
-const std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder) const
+const std::shared_ptr<QmlAVFrame> QmlAVAudioDecoder::makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMediaContextHolder> &context) const
 {
-    return std::make_shared<QmlAVAudioFrame>(avFrame, decoder);
+    return std::make_shared<QmlAVAudioFrame>(avFrame, context);
 }

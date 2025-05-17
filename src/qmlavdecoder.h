@@ -13,12 +13,12 @@ extern "C" {
 
 struct AVCodecContext;
 
-class QmlAVDemuxer;
+class QmlAVMediaContextHolder;
 class QmlAVOptions;
 class QmlAVFrame;
 class QmlAVHWOutput;
 
-class QmlAVDecoder : public std::enable_shared_from_this<QmlAVDecoder>
+class QmlAVDecoder
 {
 public:
     struct Clock {
@@ -41,10 +41,11 @@ public:
         TypeAudio
     };
 
-    QmlAVDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer, Type type = TypeUnknown);
-    virtual ~QmlAVDecoder();
+protected:
+    QmlAVDecoder(QmlAVMediaContextHolder *context, Type type = TypeUnknown);
 
-    QmlAVDemuxer *demuxer() const { return m_demuxer.get(); }
+public:
+    virtual ~QmlAVDecoder();
 
     Type type() const { return m_type; }
     QString typeName() const { return m_type == TypeVideo ? "Video" : "Audio"; }
@@ -73,7 +74,7 @@ protected:
 
     virtual bool initVideoDecoder([[maybe_unused]] const QmlAVOptions &avOptions) { return true; }
     virtual const std::shared_ptr<QmlAVFrame> makeFrame([[maybe_unused]] const AVFramePtr &avFrame,
-                                                        [[maybe_unused]] const std::shared_ptr<QmlAVDecoder> &decoder) const {
+                                                        [[maybe_unused]] const std::shared_ptr<QmlAVMediaContextHolder> &context) const {
         // NOTE: Cannot be pure virtual!
         // A stub method called on an early (static) binding when the destructor is executed.
         return {};
@@ -85,7 +86,8 @@ protected:
 
 private:
     Type m_type;
-    std::shared_ptr<QmlAVDemuxer> m_demuxer;
+    // We do not use std::weak_ptr so that the class instance can be created in the constructor
+    QmlAVMediaContextHolder *m_context;
 
     const AVStream *m_avStream;
 
@@ -98,7 +100,7 @@ private:
 class QmlAVVideoDecoder final : public QmlAVDecoder
 {
 public:
-    QmlAVVideoDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer);
+    QmlAVVideoDecoder(QmlAVMediaContextHolder *context);
     ~QmlAVVideoDecoder() override;
 
     std::shared_ptr<QmlAVHWOutput> hwOutput() const { return m_hwOutput; }
@@ -106,7 +108,7 @@ public:
 protected:
     bool initVideoDecoder(const QmlAVOptions &avOptions) override;
     static AVPixelFormat negotiatePixelFormatCb(struct AVCodecContext *avCodecCtx, const AVPixelFormat *avCodecPixelFormats);
-    const std::shared_ptr<QmlAVFrame> makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder) const override;
+    const std::shared_ptr<QmlAVFrame> makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMediaContextHolder> &context) const override;
 
 private:
     std::shared_ptr<QmlAVHWOutput> m_hwOutput;
@@ -115,12 +117,12 @@ private:
 class QmlAVAudioDecoder final : public QmlAVDecoder
 {
 public:
-    QmlAVAudioDecoder(const std::shared_ptr<QmlAVDemuxer> &demuxer);
+    QmlAVAudioDecoder(QmlAVMediaContextHolder *context);
 
     auto &resampler() { return m_resampler; }
 
 protected:
-    std::shared_ptr<QmlAVFrame> const makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder) const override;
+    std::shared_ptr<QmlAVFrame> const makeFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMediaContextHolder> &context) const override;
 
 private:
     QmlAVResampler m_resampler;

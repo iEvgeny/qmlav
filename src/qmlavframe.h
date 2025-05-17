@@ -6,6 +6,7 @@
 #include <QVideoFrame>
 #include <QAudioFormat>
 
+#include "qmlavmediacontextholder.h"
 #include "qmlavutils.h"
 #include "qmlavformat.h"
 
@@ -21,7 +22,7 @@ public:
         TypeAudio
     };
 
-    QmlAVFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder, Type type = TypeUnknown);
+    QmlAVFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMediaContextHolder> &context, Type type = TypeUnknown);
     virtual ~QmlAVFrame();
 
     Type type() const { return m_type; }
@@ -29,25 +30,34 @@ public:
     virtual bool isValid() const = 0;
     AVFramePtr &avFrame() { return m_avFrame; }
     const AVFramePtr &avFrame() const { return m_avFrame; }
-    int64_t startTime() const;
     double timeBaseUs() const;
     int64_t startPts() const;
     int64_t pts() const;
 
 protected:
-    auto decoder() const { return m_decoder.get(); }
-    template<typename T> T *decoder() const { return static_cast<T *>(m_decoder.get()); }
+    auto &context() { return m_context; }
+    const auto &context() const { return m_context; }
+
+    QmlAVDecoder *decoder() const {
+        if (m_type == TypeVideo) {
+            return m_context->videoDecoder;
+        } else if (m_type == TypeAudio) {
+            return m_context->audioDecoder;
+        }
+        return nullptr;
+    }
+    template<typename T> T *decoder() const { return static_cast<T *>(decoder()); }
 
 private:
     Type m_type;
     AVFramePtr m_avFrame;
-    std::shared_ptr<QmlAVDecoder> m_decoder;
+    std::shared_ptr<QmlAVMediaContextHolder> m_context;
 };
 
 class QmlAVVideoFrame final : public QmlAVFrame
 {
 public:
-    QmlAVVideoFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder);
+    QmlAVVideoFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMediaContextHolder> &context);
 
     bool isValid() const override;
 
@@ -64,7 +74,7 @@ public:
 class QmlAVAudioFrame final : public QmlAVFrame
 {
 public:
-    QmlAVAudioFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVDecoder> &decoder);
+    QmlAVAudioFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMediaContextHolder> &context);
     ~QmlAVAudioFrame() override;
 
     bool isValid() const override;
