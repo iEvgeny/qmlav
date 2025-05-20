@@ -85,7 +85,6 @@ private:
     std::shared_ptr<QmlAVMediaContextHolder> m_context;
 
     friend class QmlAVDecoder;
-    friend class QmlAVFrame;
 };
 Q_DECLARE_METATYPE(std::shared_ptr<QmlAVFrame>)
 

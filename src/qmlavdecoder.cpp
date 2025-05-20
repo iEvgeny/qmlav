@@ -96,13 +96,6 @@ bool QmlAVDecoder::decodeAVPacket(const AVPacketPtr &avPacket)
     return false;
 }
 
-int QmlAVDecoder::frameQueueLength() const
-{
-    // Each frame contains a QmlAVMediaContextHolder instance during its lifetime
-    auto length = m_context->weak_from_this().use_count() - 1;
-    return std::max<int>(0, length);
-}
-
 QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
 {
     AVFramePtr avFrame;

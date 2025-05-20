@@ -33,6 +33,12 @@ public:
         QmlAVRelaxedAtomic<uint32_t> packetsDecoded = 0;
         QmlAVRelaxedAtomic<uint32_t> framesDecoded = 0;
         QmlAVRelaxedAtomic<uint32_t> framesDiscarded = 0;
+
+    protected:
+        QmlAVReleaseAcquireAtomic<int> frameQueueLength = 0;
+
+        friend class QmlAVDecoder;
+        friend class QmlAVFrame;
     };
 
     enum Type {
@@ -62,8 +68,9 @@ public:
     void waitForEmptyPacketQueue() { m_threadTask.argsQueue()->waitForEmpty(); }
 
     int packetQueueLength() const { return m_threadTask.argsQueue()->length(); }
-    int frameQueueLength() const;
+    int frameQueueLength() const { return m_counters.frameQueueLength; }
 
+    auto &counters() { return m_counters; }
     const auto &counters() const { return m_counters; }
 
 signals:

@@ -51,6 +51,8 @@ struct QmlAVAtomic
     T operator--(int) noexcept { return m_value.fetch_sub(1, StoreOrder); }
     T operator++() noexcept { return m_value.fetch_add(1, StoreOrder) + 1; }
     T operator--() noexcept { return m_value.fetch_sub(1, StoreOrder) - 1; }
+    T operator+=(T i) noexcept { return m_value.fetch_add(i, StoreOrder); }
+    T operator-=(T i) noexcept { return m_value.fetch_sub(i, StoreOrder); }
 
     // TODO: Implement other members as needed
 

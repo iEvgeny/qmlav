@@ -15,12 +15,15 @@ QmlAVFrame::QmlAVFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMed
     , m_context(context)
 {
     assert(m_avFrame && m_context);
+
+    decoder()->counters().frameQueueLength += 1;
 }
 
 QmlAVFrame::~QmlAVFrame()
 {
     if (m_context) {
         m_context->clock.leftPts = pts();
+        decoder()->counters().frameQueueLength -= 1;
     }
 }
 
