@@ -41,6 +41,9 @@ public:
     virtual void classBegin() override {}
     virtual void componentComplete() override;
 
+signals:
+    void videoFramePresented();
+
 public slots:
     void play();
     void stop();
