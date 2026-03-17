@@ -118,6 +118,8 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                 if (m_videoSurface->isActive()) {
                     if (!m_videoSurface->present(qvf)) {
                         stop();
+                    } else {
+                        emit videoFramePresented();
                     }
                 }
             }
