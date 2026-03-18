@@ -3,7 +3,7 @@
 
 #include <type_traits>
 
-#include <QVideoFrame>
+#include "qmlavcompat.h"
 
 template<typename T>
 struct QmlAVPropertyTypeImpl {

@@ -6,6 +6,7 @@ set(QMLAV_INCLUDE
 
 set(QMLAV_FILES
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavwaitingqueue.h
+    ${CMAKE_CURRENT_LIST_DIR}/src/qmlavcompat.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavpropertyhelpers.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavmediacontextholder.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavutils.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavutils.h

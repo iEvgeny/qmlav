@@ -4,10 +4,16 @@ QmlAVPlayer::QmlAVPlayer(QObject *parent)
     : QObject(parent)
     , m_complete(false)
     , m_demuxer(nullptr)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    , m_videoSink(nullptr)
+#else
     , m_videoSurface(nullptr)
+#endif
     , m_audioOutput(nullptr)
 {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     qRegisterMetaType<QList<QVideoFrame::PixelFormat>>();
+#endif
 
     m_playTimer.setSingleShot(true);
     connect(&m_playTimer, &QTimer::timeout, this, &QmlAVPlayer::play);
@@ -48,9 +54,11 @@ void QmlAVPlayer::stop()
         m_demuxer = nullptr;
     }
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     if (m_videoSurface && m_videoSurface->isActive()) {
         m_videoSurface->stop();
     }
+#endif
 
     if (m_audioOutput) {
         m_audioOutput->stop();
@@ -65,6 +73,16 @@ void QmlAVPlayer::stop()
     setHasAudio(false);
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+void QmlAVPlayer::setVideoSink(QVideoSink *sink)
+{
+    if (m_videoSink != sink) {
+        stop();
+    }
+
+    m_videoSink = sink;
+}
+#else
 void QmlAVPlayer::setVideoSurface(QAbstractVideoSurface *surface)
 {
     if (m_videoSurface != surface) {
@@ -73,6 +91,7 @@ void QmlAVPlayer::setVideoSurface(QAbstractVideoSurface *surface)
 
     m_videoSurface = surface;
 }
+#endif
 
 void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
 {
@@ -81,6 +100,16 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
             auto vf = std::static_pointer_cast<QmlAVVideoFrame>(frame);
             QVideoFrame qvf = *vf;
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            if (m_videoSink) {
+                m_videoSink->setVideoFrame(qvf);
+                emit videoFramePresented();
+
+                if (!m_hasVideo) {
+                    setHasVideo(true);
+                }
+            }
+#else
             if (m_videoSurface) {
                 if (!m_videoSurface->isActive()) {
                     QVideoSurfaceFormat f(qvf.size(), qvf.pixelFormat(), qvf.handleType());
@@ -123,6 +152,7 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                     }
                 }
             }
+#endif
         } else if (frame->type() == QmlAVFrame::TypeAudio) {
             auto af = std::static_pointer_cast<QmlAVAudioFrame>(frame);
 
@@ -132,8 +162,7 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                 if (af->audioFormat().isValid()) {
                     auto f = af->audioFormat();
                     logDebug() << "Starting with: " << f;
-                    auto outputDevice = QAudioDeviceInfo::defaultOutputDevice();
-                    m_audioOutput = new QAudioOutput(outputDevice, f);
+                    m_audioOutput = qmlavCreateAudioOutput(f);
                     m_audioOutput->setVolume(QAudio::convertVolume(m_volume,
                                                                    QAudio::LogarithmicVolumeScale,
                                                                    QAudio::LinearVolumeScale));
@@ -147,7 +176,7 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
     }
 }
 
-void QmlAVPlayer::setAVOptions(QVariantMap avOptions)
+void QmlAVPlayer::setAVOptions(QmlAVPropertyType<QVariantMap> avOptions)
 {
     if (m_avOptions == avOptions) {
         return;
@@ -281,7 +310,7 @@ void QmlAVPlayer::reset()
     }
 }
 
-void QmlAVPlayer::setPlaybackState(const QMediaPlayer::State state)
+void QmlAVPlayer::setPlaybackState(const QmlAVPlaybackState state)
 {
     if (m_playbackState == state) {
         return;

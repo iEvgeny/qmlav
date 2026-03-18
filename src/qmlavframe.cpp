@@ -108,19 +108,46 @@ QmlAVColorSpace QmlAVVideoFrame::colorSpace() const
 
 QmlAVVideoFrame::operator QVideoFrame() const
 {
-    QmlAVVideoBuffer *buffer;
-
-    if (isValid())  {
-        if (isHWDecoded()) {
-            buffer = new QmlAVVideoBuffer_GPU(*this, decoder<QmlAVVideoDecoder>()->hwOutput());
-        } else {
-            buffer = new QmlAVVideoBuffer_CPU(*this);
-        }
-
-        return QVideoFrame(buffer, size(), buffer->pixelFormat());
-    } else {
+    if (!isValid()) {
         return QVideoFrame();
     }
+
+    std::unique_ptr<QmlAVVideoBuffer> buffer;
+    if (isHWDecoded()) {
+        buffer.reset(new QmlAVVideoBuffer_GPU(*this, decoder<QmlAVVideoDecoder>()->hwOutput()));
+    } else {
+        buffer.reset(new QmlAVVideoBuffer_CPU(*this));
+    }
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    QVideoFrameFormat format(size(), buffer->pixelFormat());
+    format.setColorSpace(colorSpace());
+    QVideoFrame frame(format);
+
+    auto srcMap = buffer->map(QmlAVVideoBuffer::ReadOnly);
+
+    if (frame.map(QVideoFrame::WriteOnly)) {
+        for (int i = 0; i < frame.planeCount(); ++i) {
+            if (srcMap.data[i] && srcMap.size[i] > 0) {
+                int srcStride = srcMap.bytesPerLine[i];
+                int dstStride = frame.bytesPerLine(i);
+                int lineBytes = qMin(srcStride, dstStride);
+                int planeHeight = srcMap.size[i] / srcStride;
+                for (int y = 0; y < planeHeight; ++y) {
+                    memcpy(frame.bits(i) + y * dstStride,
+                           srcMap.data[i] + y * srcStride,
+                           lineBytes);
+                }
+            }
+        }
+        frame.unmap();
+    }
+
+    return frame;
+#else
+    QmlAVPixelFormatEnum fmt = buffer->pixelFormat();
+    return QVideoFrame(buffer.release(), size(), fmt);
+#endif
 }
 
 QmlAVAudioFrame::QmlAVAudioFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMediaContextHolder> &context)
@@ -187,10 +214,14 @@ QAudioFormat QmlAVAudioFrame::audioFormat() const
 
         format.setSampleRate(sampleRate());
         format.setChannelCount(channelCount());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        format.setSampleFormat(QmlAVSampleFormat::audioFormatFromAVFormat(outSampleFormat));
+#else
         format.setCodec("audio/pcm");
         format.setByteOrder(AV_NE(QAudioFormat::BigEndian, QAudioFormat::LittleEndian));
         format.setSampleType(QmlAVSampleFormat::audioFormatFromAVFormat(outSampleFormat));
         format.setSampleSize(av_get_bytes_per_sample(outSampleFormat) * 8);
+#endif
     }
 
     return  format;

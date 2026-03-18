@@ -12,6 +12,23 @@ extern "C" {
 // When reading formats such as a sequence of 8 bit numbers, endian must be considered.
 // See <libavutil/pixfmt.h> for details.
 const std::vector<QmlAVPixelFormat::PixelFormatMap> QmlAVPixelFormat::m_pixelFormatMap = {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    {AV_PIX_FMT_NONE, QVideoFrameFormat::Format_Invalid},
+    {AV_PIX_FMT_RGB32, QVideoFrameFormat::Format_ARGB8888, true},
+    {AV_PIX_FMT_0RGB32, QVideoFrameFormat::Format_XRGB8888, true},
+    {AV_PIX_FMT_BGR32, QVideoFrameFormat::Format_BGRA8888, true},
+    {AV_PIX_FMT_0BGR32, QVideoFrameFormat::Format_BGRX8888, true},
+    {AV_PIX_FMT_YUV420P, QVideoFrameFormat::Format_YUV420P, true},
+    {AV_PIX_FMT_UYVY422, QVideoFrameFormat::Format_UYVY, true},
+    {AV_PIX_FMT_YUYV422, QVideoFrameFormat::Format_YUYV, true},
+    {AV_PIX_FMT_NV12, QVideoFrameFormat::Format_NV12, true},
+    {AV_PIX_FMT_NV21, QVideoFrameFormat::Format_NV21, true},
+    {AV_PIX_FMT_GRAY8, QVideoFrameFormat::Format_Y8},
+    {AV_PIX_FMT_GRAY16LE, QVideoFrameFormat::Format_Y16},
+    {AV_PIX_FMT_YUV422P, QVideoFrameFormat::Format_YUV422P, true},
+    {AV_PIX_FMT_P010LE, QVideoFrameFormat::Format_P010, true},
+    {AV_PIX_FMT_BGR32, QVideoFrameFormat::Format_ABGR8888},
+#else
     {AV_PIX_FMT_NONE, QVideoFrame::Format_Invalid},
     {AV_PIX_FMT_RGB32, QVideoFrame::Format_ARGB32, true},
 //    {, QVideoFrame::Format_ARGB32_Premultiplied},
@@ -49,6 +66,7 @@ const std::vector<QmlAVPixelFormat::PixelFormatMap> QmlAVPixelFormat::m_pixelFor
     {AV_PIX_FMT_BGR32, QVideoFrame::Format_ABGR32},
     {AV_PIX_FMT_YUV422P, QVideoFrame::Format_YUV422P, true}
 #endif
+#endif
 };
 
 QmlAVPixelFormat::QmlAVPixelFormat(AVPixelFormat avPixelFormat)
@@ -61,7 +79,7 @@ QmlAVPixelFormat::QmlAVPixelFormat(int avPixelFormat)
 {
 }
 
-QmlAVPixelFormat::QmlAVPixelFormat(QVideoFrame::PixelFormat pixelFormat)
+QmlAVPixelFormat::QmlAVPixelFormat(QmlAVPixelFormatEnum pixelFormat)
     : m_avPixelFormat(avFormatFromPixelFormat(pixelFormat))
 {
 }
@@ -117,7 +135,7 @@ AVPixelFormat QmlAVPixelFormat::normalize(AVPixelFormat avPixelFormat) const
     return avPixelFormat;
 }
 
-QVideoFrame::PixelFormat QmlAVPixelFormat::pixelFormatFromAVFormat(AVPixelFormat avPixelFormat) const
+QmlAVPixelFormatEnum QmlAVPixelFormat::pixelFormatFromAVFormat(AVPixelFormat avPixelFormat) const
 {
     for (const auto &pfm : m_pixelFormatMap) {
         if (pfm.avFormat == avPixelFormat) {
@@ -125,10 +143,14 @@ QVideoFrame::PixelFormat QmlAVPixelFormat::pixelFormatFromAVFormat(AVPixelFormat
         }
     }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return QVideoFrameFormat::Format_Invalid;
+#else
     return QVideoFrame::Format_Invalid;
+#endif
 }
 
-AVPixelFormat QmlAVPixelFormat::avFormatFromPixelFormat(QVideoFrame::PixelFormat pixelFormat) const
+AVPixelFormat QmlAVPixelFormat::avFormatFromPixelFormat(QmlAVPixelFormatEnum pixelFormat) const
 {
     for (const auto &pfm : m_pixelFormatMap) {
         if (pfm.format == pixelFormat) {
@@ -144,9 +166,19 @@ QmlAVColorSpace::QmlAVColorSpace(AVColorSpace avColorSpace)
 {
 }
 
-QmlAVColorSpace::operator QVideoSurfaceFormat::YCbCrColorSpace() const
+QmlAVColorSpace::operator QmlAVColorSpaceEnum() const
 {
     switch (m_avColorSpace) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    case AVCOL_SPC_RGB:
+        return QVideoFrameFormat::ColorSpace_AdobeRgb;
+    case AVCOL_SPC_BT470BG:
+    case AVCOL_SPC_SMPTE170M:
+    case AVCOL_SPC_SMPTE240M:
+        return QVideoFrameFormat::ColorSpace_BT601;
+    default:
+        return QVideoFrameFormat::ColorSpace_Undefined;
+#else
     case AVCOL_SPC_RGB:
         // Modified BT.601 with full 8-bit range of [0...255]
         // The Qt sources contain the corresponding RGB<->YUV conversion matrices
@@ -163,9 +195,24 @@ QmlAVColorSpace::operator QVideoSurfaceFormat::YCbCrColorSpace() const
 //        return QVideoSurfaceFormat::YCbCr_BT709;
     default:
         return QVideoSurfaceFormat::YCbCr_Undefined;
+#endif
     }
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+QAudioFormat::SampleFormat QmlAVSampleFormat::audioFormatFromAVFormat(AVSampleFormat sampleFormat)
+{
+    QMap<AVSampleFormat, QAudioFormat::SampleFormat> sampleFormatMap {
+        {AV_SAMPLE_FMT_U8, QAudioFormat::UInt8},        // unsigned 8 bits
+        {AV_SAMPLE_FMT_S16, QAudioFormat::Int16},       // signed 16 bits
+        {AV_SAMPLE_FMT_S32, QAudioFormat::Int32},       // signed 32 bits
+        {AV_SAMPLE_FMT_FLT, QAudioFormat::Float},       // float
+        {AV_SAMPLE_FMT_DBL, QAudioFormat::Float},       // double
+    };
+
+    return sampleFormatMap.value(sampleFormat, QAudioFormat::Unknown);
+}
+#else
 QAudioFormat::SampleType QmlAVSampleFormat::audioFormatFromAVFormat(AVSampleFormat sampleFormat)
 {
     QMap<AVSampleFormat, QAudioFormat::SampleType> sampleFormatMap {
@@ -186,17 +233,20 @@ QAudioFormat::SampleType QmlAVSampleFormat::audioFormatFromAVFormat(AVSampleForm
 
     return sampleFormatMap.value(sampleFormat, QAudioFormat::Unknown);
 }
+#endif
 
 #ifndef QT_NO_DEBUG_STREAM
 QDebug operator<<(QDebug dbg, const QmlAVPixelFormat &pixelFormat)
 {
     dbg.nospace() << QString("AV_PIX_FMT_%1").arg(av_get_pix_fmt_name(pixelFormat)).toUpper();
-    return dbg.nospace() << " (QVideoFrame::" << static_cast<QVideoFrame::PixelFormat>(pixelFormat) << ")";
+    return dbg.nospace() << " (" << static_cast<QmlAVPixelFormatEnum>(pixelFormat) << ")";
 }
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 QDebug operator<<(QDebug dbg, const QmlAVColorSpace &colorSpace)
 {
     dbg.nospace() << QString("AVCOL_SPC_%1").arg(av_color_space_name(colorSpace)).toUpper();
     return dbg.nospace() << " (QVideoSurfaceFormat::" << static_cast<QVideoSurfaceFormat::YCbCrColorSpace>(colorSpace) << ")";
 }
+#endif
 #endif

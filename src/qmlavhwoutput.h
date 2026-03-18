@@ -1,8 +1,7 @@
 #ifndef QMLAVHWOUTPUT_H
 #define QMLAVHWOUTPUT_H
 
-#include <QAbstractVideoBuffer>
-
+#include "qmlavcompat.h"
 #include "qmlavutils.h"
 #include "qmlavformat.h"
 
@@ -23,7 +22,9 @@ public:
 
     virtual Type type() const = 0;
     virtual QmlAVPixelFormat pixelFormat() const = 0;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     virtual QAbstractVideoBuffer::HandleType handleType() const = 0;
+#endif
     virtual QVariant handle(const AVFramePtr &avFrame) = 0;
 };
 
@@ -39,7 +40,9 @@ public:
 
     Type type() const override { return TypeVAAPI_GLX; }
     QmlAVPixelFormat pixelFormat() const override { return AV_PIX_FMT_BGR32; }
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QAbstractVideoBuffer::HandleType handleType() const override { return QAbstractVideoBuffer::GLTextureHandle; }
+#endif
     QVariant handle(const AVFramePtr &avFrame) override;
 
 private:
