@@ -3,8 +3,7 @@
 
 #include <memory>
 
-#include <QVideoFrame>
-#include <QAudioFormat>
+#include "qmlavcompat.h"
 
 #include "qmlavmediacontextholder.h"
 #include "qmlavutils.h"

@@ -6,6 +6,14 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+QmlAVVideoBuffer::QmlAVVideoBuffer(const QmlAVVideoFrame &videoFrame)
+    : m_videoFrame(videoFrame)
+    , m_mapMode(NotMapped)
+    , m_swsCtx(nullptr)
+{
+}
+#else
 QmlAVVideoBuffer::QmlAVVideoBuffer(const QmlAVVideoFrame &videoFrame, QAbstractVideoBuffer::HandleType type)
     : QAbstractPlanarVideoBuffer(type)
     , m_videoFrame(videoFrame)
@@ -31,6 +39,7 @@ int QmlAVVideoBuffer::map(QAbstractVideoBuffer::MapMode mode, int *numBytes, int
 
     return i;
 }
+#endif
 
 bool QmlAVVideoBuffer::planeSizes(int size[]) const
 {
@@ -102,15 +111,27 @@ AVFramePtr QmlAVVideoBuffer::swsScale(const QmlAVPixelFormat &dstFormat)
 }
 
 QmlAVVideoBuffer_CPU::QmlAVVideoBuffer_CPU(const QmlAVVideoFrame &videoFrame)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    : QmlAVVideoBuffer(videoFrame)
+#else
     : QmlAVVideoBuffer(videoFrame, QAbstractVideoBuffer::NoHandle)
+#endif
 {
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+QmlAVVideoBuffer::MapData QmlAVVideoBuffer_CPU::map(QmlAVVideoBuffer::MapMode mode)
+#else
 QmlAVVideoBuffer::MapData QmlAVVideoBuffer_CPU::map(QAbstractVideoBuffer::MapMode mode)
+#endif
 {
     MapData mapData;
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (mode != QmlAVVideoBuffer::NotMapped) {
+#else
     if (mode != QAbstractVideoBuffer::NotMapped) {
+#endif
         auto srcFormat = m_videoFrame.pixelFormat();
         auto dstFormat = pixelFormat();
 
@@ -143,17 +164,27 @@ QmlAVVideoBuffer_GPU::QmlAVVideoBuffer_GPU(const QmlAVVideoFrame &videoFrame, st
     : QmlAVVideoBuffer_CPU(videoFrame)
     , m_hwOutput(hwOutput)
 {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     if (m_hwOutput) {
         m_type = m_hwOutput->handleType();
     }
+#endif
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+QmlAVVideoBuffer::MapData QmlAVVideoBuffer_GPU::map(QmlAVVideoBuffer::MapMode mode)
+#else
 QmlAVVideoBuffer::MapData QmlAVVideoBuffer_GPU::map(QAbstractVideoBuffer::MapMode mode)
+#endif
 {
     int ret;
     AVFramePtr avFrameSw;
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (mapMode() == QmlAVVideoBuffer::NotMapped) {
+#else
     if (mapMode() == QAbstractVideoBuffer::NotMapped) {
+#endif
 
         avFrameSw->format = m_videoFrame.swPixelFormat(); // Important!
 
@@ -164,18 +195,24 @@ QmlAVVideoBuffer::MapData QmlAVVideoBuffer_GPU::map(QAbstractVideoBuffer::MapMod
             }
         } else {
             logCritical() << QString("Failed to transfer data to system memory: \"%1\" (%2)").arg(av_err2str(ret)).arg(ret);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            return QmlAVVideoBuffer_CPU::map(QmlAVVideoBuffer::NotMapped);
+#else
             return QmlAVVideoBuffer_CPU::map(QAbstractVideoBuffer::NotMapped);
+#endif
         }
     }
 
     return QmlAVVideoBuffer_CPU::map(mode);
 }
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 QVariant QmlAVVideoBuffer_GPU::handle() const
 {
     assert(m_hwOutput);
     return m_hwOutput->handle(m_videoFrame.avFrame());
 }
+#endif
 
 QmlAVPixelFormat QmlAVVideoBuffer_GPU::pixelFormat() const
 {
