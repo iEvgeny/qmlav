@@ -21,9 +21,9 @@ QmlAVFrame::QmlAVFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMed
 
 QmlAVFrame::~QmlAVFrame()
 {
-    assert(decoder()->counters().frameQueueLength > 0);
-
     if (m_context) {
+        assert(decoder()->counters().frameQueueLength > 0);
+
         m_context->clock.leftPts = pts();
         decoder()->counters().frameQueueLength -= 1;
     }
