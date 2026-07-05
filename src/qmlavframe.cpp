@@ -21,10 +21,26 @@ QmlAVFrame::QmlAVFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMed
 
 QmlAVFrame::~QmlAVFrame()
 {
+    assert(decoder()->counters().frameQueueLength > 0);
+
     if (m_context) {
         m_context->clock.leftPts = pts();
         decoder()->counters().frameQueueLength -= 1;
     }
+}
+
+QmlAVFrame::QmlAVFrame(const QmlAVFrame &other)
+    : QmlAVFrame(other.m_avFrame, other.m_context, other.m_type)
+{
+}
+
+QmlAVFrame::QmlAVFrame(QmlAVFrame &&other) noexcept
+    : m_type(other.m_type)
+    , m_avFrame(std::move(other.m_avFrame))
+    , m_context(std::move(other.m_context))
+{
+    // Moved-from object must not decrement the counter in its destructor
+    other.m_context = nullptr;
 }
 
 double QmlAVFrame::timeBaseUs() const

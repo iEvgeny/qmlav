@@ -25,6 +25,12 @@ public:
     QmlAVFrame(const AVFramePtr &avFrame, const std::shared_ptr<QmlAVMediaContextHolder> &context, Type type = TypeUnknown);
     virtual ~QmlAVFrame();
 
+    QmlAVFrame(const QmlAVFrame &other);
+    QmlAVFrame(QmlAVFrame &&other) noexcept;
+
+    QmlAVFrame &operator=(const QmlAVFrame &other) = delete;
+    QmlAVFrame &operator=(QmlAVFrame &&other) = delete;
+
     Type type() const { return m_type; }
 
     virtual bool isValid() const = 0;
