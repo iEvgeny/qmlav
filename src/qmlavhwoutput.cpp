@@ -102,17 +102,23 @@ bool QmlAVHWOutput_VAAPI_GLX::initializeGLX(int width, int height)
     };
 
     int nItems;
-    GLXFBConfig *fbConfigs = glXChooseFBConfig(glxDisplay, x11Screen, fbConfigAttribs, &nItems);
+    std::unique_ptr<GLXFBConfig, decltype(&XFree)> fbConfigs(glXChooseFBConfig(glxDisplay, x11Screen, fbConfigAttribs, &nItems), XFree);
     if (!fbConfigs) {
         logWarning() << "Failed to choose GLX FBConfig.";
         return false;
     }
 
-    int depth = DefaultDepth(glxDisplay, x11Screen);
+    std::unique_ptr<XVisualInfo, decltype(&XFree)> vis(glXGetVisualFromFBConfig(glxDisplay, fbConfigs.get()[0]), XFree);
+    if (!vis) {
+        logWarning() << "Failed to get visual from GLX FBConfig.";
+        return false;
+    }
+
+    int depth = vis->depth;
+
     m_x11Pixmap = XCreatePixmap(glxDisplay, DefaultRootWindow(glxDisplay), width, height, depth);
     if (!m_x11Pixmap) {
         logWarning() << "Failed to create X11 Pixmap.";
-        XFree(fbConfigs);
         return false;
     }
 
@@ -123,12 +129,11 @@ bool QmlAVHWOutput_VAAPI_GLX::initializeGLX(int width, int height)
         None,
     };
 
-    m_glXPixmap = glXCreatePixmap(glxDisplay, fbConfigs[0], m_x11Pixmap, pixmapAttribs);
+    m_glXPixmap = glXCreatePixmap(glxDisplay, fbConfigs.get()[0], m_x11Pixmap, pixmapAttribs);
     if (!m_glXPixmap) {
         logWarning() << "Failed to create GLX Pixmap.";
         XFreePixmap(glxDisplay, m_x11Pixmap);
         m_x11Pixmap = 0;
-        XFree(fbConfigs);
         return false;
     }
 
@@ -136,7 +141,6 @@ bool QmlAVHWOutput_VAAPI_GLX::initializeGLX(int width, int height)
 
     m_glxDisplay = glxDisplay;
 
-    XFree(fbConfigs);
     return true;
 }
 
