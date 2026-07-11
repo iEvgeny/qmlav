@@ -50,6 +50,8 @@ private:
 
     PFNGLXBINDTEXIMAGEEXTPROC m_glXBindTexImageEXT;
     PFNGLXRELEASETEXIMAGEEXTPROC m_glXReleaseTexImageEXT;
+
+    bool initializeGLX(int width, int height);
 };
 #endif
 
