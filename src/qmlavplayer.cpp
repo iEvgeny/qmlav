@@ -92,11 +92,11 @@ void QmlAVPlayer::frameHandler(const std::shared_ptr<QmlAVFrame> frame)
                     } else {
                         // Just divide the DAR by the Frame size and reduce the fraction
                         av_reduce(&sar.num, &sar.den,
-                                  dar->num * vf->size().height(),
-                                  dar->den * vf->size().width(),
+                                  dar->num * vf->height(),
+                                  dar->den * vf->width(),
                                   1024 * 1024);
                         logDebug() << "Force Aspect Ratio "
-                                  << vf->size().width() << "x" << vf->size().height()
+                                  << vf->width() << "x" << vf->height()
                                   << " [SAR " << sar.num << ":" << sar.den << " DAR " << dar->num << ":" << dar->den << "]";
                     }
                     f.setPixelAspectRatio(sar.num, sar.den);

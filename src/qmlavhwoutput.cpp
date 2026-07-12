@@ -19,46 +19,47 @@ QmlAVHWOutput_VAAPI_GLX::QmlAVHWOutput_VAAPI_GLX()
 
 QmlAVHWOutput_VAAPI_GLX::~QmlAVHWOutput_VAAPI_GLX()
 {
-    if (m_glxDisplay) {
-        if (m_glXPixmap) {
-            m_glXReleaseTexImageEXT(m_glxDisplay, m_glXPixmap, GLX_FRONT_EXT);
-        }
-
-        if (m_glXPixmap) glXDestroyPixmap(m_glxDisplay, m_glXPixmap);
-        if (m_x11Pixmap) XFreePixmap(m_glxDisplay, m_x11Pixmap);
-    }
-
-    glDeleteTextures(1, &m_glTexture);
+    cleanupGLX();
 }
 
-// TODO: Implement video resolution changing and get display depth via glXGetFBConfigAttrib()
-QVariant QmlAVHWOutput_VAAPI_GLX::handle(const AVFramePtr &avFrame)
+QVariant QmlAVHWOutput_VAAPI_GLX::handle(const QmlAVVideoFrame &videoFrame)
 {
+    if (!videoFrame.isValid()) {
+        return {};
+    }
+
     if (!m_glXBindTexImageEXT || !m_glXReleaseTexImageEXT) {
         logWarning() << "Failed to get GLX proc addresses.";
         return {};
     }
-    if (avFrame->format != AV_PIX_FMT_VAAPI) {
-        logWarning() << QString("Wrong pixel format: ") << QmlAVPixelFormat(avFrame->format);
+    if (videoFrame.pixelFormat() != QmlAVPixelFormat(AV_PIX_FMT_VAAPI)) {
+        logWarning() << QString("Wrong pixel format: ") << videoFrame.pixelFormat();
         return {};
     }
 
     // Get VA-API context
-    auto avHWFramesCtx = reinterpret_cast<AVHWFramesContext *>(avFrame->hw_frames_ctx->data);
+    auto avHWFramesCtx = reinterpret_cast<AVHWFramesContext *>(videoFrame.avFrame()->hw_frames_ctx->data);
     auto vaDeviceCtx = static_cast<AVVAAPIDeviceContext *>(avHWFramesCtx->device_ctx->hwctx);
     VADisplay vaDisplay = vaDeviceCtx->display;
-    VASurfaceID vaSurface = reinterpret_cast<uintptr_t>(avFrame->data[3]);
+    VASurfaceID vaSurface = reinterpret_cast<uintptr_t>(videoFrame.avFrame()->data[3]);
+
+    // Check Frame contract
+    auto newContract = Contract();
+    if (m_contract != newContract) {
+        m_contract = newContract;
+        cleanupGLX();
+    }
 
     // Lazy initialization
-    if (!m_glxDisplay && !initializeGLX(avFrame->width, avFrame->height)) {
+    if (!m_glxDisplay && !initializeGLX(videoFrame.width(), videoFrame.height())) {
         return {};
     }
 
     vaSyncSurface(vaDisplay, vaSurface);
 
     uint status = vaPutSurface(vaDisplay, vaSurface, m_x11Pixmap,
-                               0, 0, avFrame->width, avFrame->height,
-                               0, 0, avFrame->width, avFrame->height,
+                               0, 0, videoFrame.width(), videoFrame.height(),
+                               0, 0, videoFrame.width(), videoFrame.height(),
                                nullptr, 0, VA_FRAME_PICTURE | VA_SRC_BT601);
     if (status != VA_STATUS_SUCCESS) {
         logWarning() << "vaPutSurface() failed: 0x" << QmlAV::Hex << status;
@@ -75,6 +76,30 @@ QVariant QmlAVHWOutput_VAAPI_GLX::handle(const AVFramePtr &avFrame)
     glBindTexture(GL_TEXTURE_2D, 0);
 
     return m_glTexture;
+}
+
+void QmlAVHWOutput_VAAPI_GLX::cleanupGLX()
+{
+    if (m_glxDisplay) {
+        if (m_glXPixmap && m_glXReleaseTexImageEXT) {
+            m_glXReleaseTexImageEXT(m_glxDisplay, m_glXPixmap, GLX_FRONT_EXT);
+        }
+
+        if (m_glXPixmap) {
+            glXDestroyPixmap(m_glxDisplay, m_glXPixmap);
+            m_glXPixmap = 0;
+        }
+
+        if (m_x11Pixmap) {
+            XFreePixmap(m_glxDisplay, m_x11Pixmap);
+            m_x11Pixmap = 0;
+        }
+
+        m_glxDisplay = nullptr;
+    }
+
+    glDeleteTextures(1, &m_glTexture);
+    m_glTexture = 0;
 }
 
 bool QmlAVHWOutput_VAAPI_GLX::initializeGLX(int width, int height)

@@ -133,7 +133,7 @@ QmlAVVideoFrame::operator QVideoFrame() const
             buffer = new QmlAVVideoBuffer_CPU(*this);
         }
 
-        return QVideoFrame(buffer, size(), buffer->pixelFormat());
+        return QVideoFrame(buffer, {avFrame()->width, avFrame()->height}, buffer->pixelFormat());
     } else {
         return QVideoFrame();
     }

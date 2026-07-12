@@ -1,8 +1,7 @@
 #ifndef QMLAVHWOUTPUT_H
 #define QMLAVHWOUTPUT_H
 
-#include <QAbstractVideoBuffer>
-
+#include "qmlavframe.h"
 #include "qmlavutils.h"
 #include "qmlavformat.h"
 
@@ -15,6 +14,30 @@ public:
         TypeVAAPI_GLX
     };
 
+    struct Contract
+    {
+        int width = 0;
+        int height = 0;
+        AVPixelFormat swFormat = AV_PIX_FMT_NONE;
+
+        Contract() = default;
+        Contract(const QmlAVVideoFrame &videoFrame) {
+            width = videoFrame.width();
+            height = videoFrame.height();
+            swFormat = videoFrame.swPixelFormat();
+        }
+
+        bool operator==(const Contract &other) const {
+            return width == other.width &&
+                   height == other.height &&
+                   swFormat == other.swFormat;
+        }
+
+        bool operator!=(const Contract &other) const {
+            return !(*this == other);
+        }
+    };
+
     QmlAVHWOutput() { }
     virtual ~QmlAVHWOutput() { }
 
@@ -24,7 +47,12 @@ public:
     virtual Type type() const = 0;
     virtual QmlAVPixelFormat pixelFormat() const = 0;
     virtual QAbstractVideoBuffer::HandleType handleType() const = 0;
-    virtual QVariant handle(const AVFramePtr &avFrame) = 0;
+    virtual QVariant handle(const QmlAVVideoFrame &videoFrame) = 0;
+
+protected:
+    void resetContract() { m_contract = Contract{}; }
+
+    Contract m_contract;
 };
 
 #if defined(__linux__) && !defined(__ANDROID__)
@@ -40,7 +68,7 @@ public:
     Type type() const override { return TypeVAAPI_GLX; }
     QmlAVPixelFormat pixelFormat() const override { return AV_PIX_FMT_BGR32; }
     QAbstractVideoBuffer::HandleType handleType() const override { return QAbstractVideoBuffer::GLTextureHandle; }
-    QVariant handle(const AVFramePtr &avFrame) override;
+    QVariant handle(const QmlAVVideoFrame &videoFrame) override;
 
 private:
     Display *m_glxDisplay;
@@ -51,6 +79,7 @@ private:
     PFNGLXBINDTEXIMAGEEXTPROC m_glXBindTexImageEXT;
     PFNGLXRELEASETEXIMAGEEXTPROC m_glXReleaseTexImageEXT;
 
+    void cleanupGLX();
     bool initializeGLX(int width, int height);
 };
 #endif

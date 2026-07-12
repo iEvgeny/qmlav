@@ -174,7 +174,7 @@ QmlAVVideoBuffer::MapData QmlAVVideoBuffer_GPU::map(QAbstractVideoBuffer::MapMod
 QVariant QmlAVVideoBuffer_GPU::handle() const
 {
     assert(m_hwOutput);
-    return m_hwOutput->handle(m_videoFrame.avFrame());
+    return m_hwOutput->handle(m_videoFrame);
 }
 
 QmlAVPixelFormat QmlAVVideoBuffer_GPU::pixelFormat() const
