@@ -60,7 +60,7 @@ QVariant QmlAVHWOutput_VAAPI_GLX::handle(const QmlAVVideoFrame &videoFrame)
     uint status = vaPutSurface(vaDisplay, vaSurface, m_x11Pixmap,
                                0, 0, videoFrame.width(), videoFrame.height(),
                                0, 0, videoFrame.width(), videoFrame.height(),
-                               nullptr, 0, VA_FRAME_PICTURE | VA_SRC_BT601);
+                               nullptr, 0, getVAAPIColorFlags(videoFrame.avFrame()));
     if (status != VA_STATUS_SUCCESS) {
         logWarning() << "vaPutSurface() failed: 0x" << QmlAV::Hex << status;
         return {};
@@ -167,6 +167,41 @@ bool QmlAVHWOutput_VAAPI_GLX::initializeGLX(int width, int height)
     m_glxDisplay = glxDisplay;
 
     return true;
+}
+
+uint32_t QmlAVHWOutput_VAAPI_GLX::getVAAPIColorFlags(const AVFramePtr &avFrame) const
+{
+    uint32_t colorFlags = VA_FRAME_PICTURE;
+
+    // Color Space (BT.601, BT.709, BT.2020)
+    switch (avFrame->colorspace) {
+    case AVCOL_SPC_BT709:
+        colorFlags |= VA_SRC_BT709;
+        break;
+#ifdef AVCOL_SPC_BT2020_CL
+    case AVCOL_SPC_BT2020_NCL:
+    case AVCOL_SPC_BT2020_CL:
+        colorFlags |= VA_SRC_BT2020;
+        break;
+#endif
+    case AVCOL_SPC_SMPTE240M:
+        colorFlags |= VA_SRC_SMPTE_240;
+        break;
+    case AVCOL_SPC_BT470BG:
+    case AVCOL_SPC_SMPTE170M:
+    default:
+        colorFlags |= VA_SRC_BT601;
+        break;
+    }
+
+    // Color Range (Full/JPEG Range vs Limited/MPEG Range)
+#ifdef VA_SOURCE_RANGE_FULL
+    if (avFrame->color_range == AVCOL_RANGE_JPEG) {
+        colorFlags |= VA_SOURCE_RANGE_FULL;
+    }
+#endif
+
+    return colorFlags;
 }
 
 #endif

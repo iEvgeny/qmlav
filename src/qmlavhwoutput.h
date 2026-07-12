@@ -81,6 +81,8 @@ private:
 
     void cleanupGLX();
     bool initializeGLX(int width, int height);
+
+    uint32_t getVAAPIColorFlags(const AVFramePtr &avFrame) const;
 };
 #endif
 
