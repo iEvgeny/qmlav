@@ -17,14 +17,16 @@ set(QMLAV_FILES
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavframe.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavframe.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavresampler.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavresampler.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavvideobuffer.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavvideobuffer.h
-    ${CMAKE_CURRENT_LIST_DIR}/src/qmlavhwoutput.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavhwoutput.h
+    ${CMAKE_CURRENT_LIST_DIR}/src/qmlavhwoutput.h
+    ${CMAKE_CURRENT_LIST_DIR}/src/qmlavhwoutput_vaapi_glx.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavhwoutput_vaapi_glx.h
+    ${CMAKE_CURRENT_LIST_DIR}/src/qmlavhwoutput_vaapi_egl.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavhwoutput_vaapi_egl.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavaudioiodevice.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavaudioiodevice.h
     ${CMAKE_CURRENT_LIST_DIR}/src/qmlavplayer.cpp ${CMAKE_CURRENT_LIST_DIR}/src/qmlavplayer.h
 )
 
 set(QMLAV_LINK_DEPENDENCIES avformat avcodec avutil swscale swresample avdevice)
 if (UNIX AND NOT ANDROID)
-    list(APPEND QMLAV_LINK_DEPENDENCIES va va-x11 GL GLX X11)
+    list(APPEND QMLAV_LINK_DEPENDENCIES va va-x11 va-drm EGL GL GLX X11 drm)
 endif()
 
 set(QMLAV_INCLUDE ${QMLAV_INCLUDE} PARENT_SCOPE)

@@ -1,5 +1,6 @@
 #include "qmlavoptions.h"
-#include "qmlavhwoutput.h"
+#include "qmlavhwoutput_vaapi_egl.h"
+#include "qmlavhwoutput_vaapi_glx.h"
 
 #include <QGuiApplication>
 
@@ -67,6 +68,14 @@ std::shared_ptr<QmlAVHWOutput> QmlAVOptions::hwOutput() const
             }
 
             hwOutput = std::make_shared<QmlAVHWOutput_VAAPI_GLX>();
+            return;
+        }
+        if (value == "egl") {
+            if (avHWDeviceType() != AV_HWDEVICE_TYPE_VAAPI) {
+                logWarning() << "The \"" << value << "\" output module does not match VAAPI decoder!";
+                return;
+            }
+            hwOutput = std::make_shared<QmlAVHWOutput_VAAPI_EGL>();
             return;
         }
 #endif

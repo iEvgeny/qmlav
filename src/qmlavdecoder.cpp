@@ -170,9 +170,14 @@ bool QmlAVVideoDecoder::initVideoDecoder(const QmlAVOptions &avOptions)
         AVBufferRef *avHWDeviceCtx = nullptr;
 
         m_hwOutput = avOptions.hwOutput();
-        if (m_hwOutput && m_hwOutput->type() == QmlAVHWOutput::TypeVAAPI_GLX) {
-            // NOTE: The X11 windowing subsystem can also be initialized in the "QmlAVHWOutput_VAAPI_GLX" module manually
-            opts.set("connection_type", "x11");
+        if (m_hwOutput) {
+            if (m_hwOutput->type() == QmlAVHWOutput::TypeVAAPI_GLX) {
+                // NOTE: The X11 windowing subsystem can also be initialized in the "QmlAVHWOutput_VAAPI_GLX" module manually
+                opts.set("connection_type", "x11");
+            } else if (m_hwOutput->type() == QmlAVHWOutput::TypeVAAPI_EGL) {
+                // For EGL/DMA-BUF it is better to use drm rather than x11 to avoid dependence on XWayland
+                opts.set("connection_type", "drm");
+            }
         }
 
         // TODO: Use parameters to initialize the HW device. See ffmpeg_hw.c (-hwaccel_device, -init_hw_device options)

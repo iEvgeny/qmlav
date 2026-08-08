@@ -1,4 +1,4 @@
-#include "qmlavhwoutput.h"
+#include "qmlavhwoutput_vaapi_glx.h"
 
 #if defined(__linux__) && !defined(__ANDROID__)
 #include <va/va_x11.h>
@@ -44,7 +44,7 @@ QVariant QmlAVHWOutput_VAAPI_GLX::handle(const QmlAVVideoFrame &videoFrame)
     VASurfaceID vaSurface = reinterpret_cast<uintptr_t>(videoFrame.avFrame()->data[3]);
 
     // Check Frame contract
-    auto newContract = Contract();
+    Contract newContract(videoFrame);
     if (m_contract != newContract) {
         m_contract = newContract;
         cleanupGLX();
