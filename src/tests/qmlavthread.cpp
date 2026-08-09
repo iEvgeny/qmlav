@@ -178,6 +178,70 @@ TEST(QmlAVThread, QmlAVTask_Retry)
     EXPECT_EQ(n, 42);
 }
 
+TEST(QmlAVThread, QmlAVTask_VoidResult)
+{
+    int processed = 0;
+
+    auto t = QmlAVThreadTask([&](int n) { processed += n; });
+    t(10);
+    t(15);
+    t(17);
+
+    QmlAVThreadLiveController<void> c = t.getLiveController();
+    t.argsQueue()->waitForEmpty();
+    c.requestInterrupt(true);
+
+    EXPECT_EQ(processed, 42);
+}
+
+TEST(QmlAVThread, QmlAVTask_NoArgs)
+{
+    int processed = 0;
+
+    auto t = QmlAVThreadTask([&]() { processed += 14; });
+    t();
+    t();
+    t();
+
+    QmlAVThreadLiveController<void> c = t.getLiveController();
+    t.argsQueue()->waitForEmpty();
+    c.requestInterrupt(true);
+
+    EXPECT_EQ(processed, 42);
+}
+
+TEST(QmlAVThread, QmlAVThreadRun_MoveOnlyCallable)
+{
+    int processed = 0;
+
+    auto c = QmlAVThread::run([p = std::make_unique<int>(42), &processed]() mutable {
+        (void)p;              // unique_ptr captured: makes the lambda move-only
+        processed = 42;
+    });
+    c.waitForFinished();
+
+    EXPECT_EQ(processed, 42);
+}
+
+TEST(QmlAVThread, QmlAVTask_MoveOnlyCallable)
+{
+    int processed = 0;
+
+    auto t = QmlAVThreadTask([p = std::make_unique<int>(42), &processed](int n) mutable {
+        (void)p;              // unique_ptr captured: makes the lambda move-only
+        processed += n;
+    });
+    t(10);
+    t(15);
+    t(17);
+
+    QmlAVThreadLiveController<void> c = t.getLiveController();
+    t.argsQueue()->waitForEmpty();
+    c.requestInterrupt(true);
+
+    EXPECT_EQ(processed, 42);
+}
+
 TEST(QmlAVThread, QmlAVTask_DemuxerDecoderThreadModel)
 {
     const int tasksCount = 1000;

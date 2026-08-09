@@ -43,7 +43,7 @@ public:
                 return m_producerLimit == 0 || m_queue.size() < m_producerLimit;
             });
 
-            m_queue.push(std::forward<T>(value));
+            m_queue.push(std::forward<URef>(value));
         }
         m_consumerCond.notify_one();
     }

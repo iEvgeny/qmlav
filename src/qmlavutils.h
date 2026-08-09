@@ -257,7 +257,7 @@ public:
         // NOTE: std::tuple is decayed into arguments as a sequence of lvalue or rvalue references,
         // depending on how it was passed to std::apply (See std::get and std::apply implementation).
         template<typename Callable>
-        constexpr static auto invoke(Callable callable, std::decay_t<Args> &...args) {
+        constexpr static auto invoke(Callable &callable, std::decay_t<Args> &...args) {
             // NOTE: Here we do not use the idiom of perfect forwarding.
             // It is a casting of argument types according to the signature of the called object.
             return std::invoke(callable, std::forward<Args>(args)...);
@@ -268,21 +268,43 @@ public:
     struct FunctionTraits<Ret (*)(Args...)>
         : public FunctionTraits<Ret (Args...)> { };
 
-    template<typename Ret, typename Type, typename ...Args>
-    struct FunctionTraits<Ret (Type::*)(Args...)>
+#define QMLAV_FUNCTION_TRAITS_MEMBER(M) \
+    template<typename Ret, typename Type, typename ...Args> \
+        struct FunctionTraits<Ret (Type::*)(Args...) M> \
         : public FunctionTraits<Ret (Type*, Args...)> { };
-
-    template<typename Ret, typename Type, typename ...Args>
-    struct FunctionTraits<Ret (Type::*)(Args...) const>
-        : public FunctionTraits<Ret (Type*, Args...)> { };
-
-    template<typename Ret, typename Type, typename ...Args>
-    struct FunctorTraits<Ret (Type::*)(Args...)>
+#define QMLAV_FUNCTOR_TRAITS_MEMBER(M) \
+    template<typename Ret, typename Type, typename ...Args> \
+        struct FunctorTraits<Ret (Type::*)(Args...) M> \
         : public FunctionTraits<Ret (Args...)> { };
 
-    template<typename Ret, typename Type, typename ...Args>
-    struct FunctorTraits<Ret (Type::*)(Args...) const>
-        : public FunctionTraits<Ret (Args...)> { };
+    QMLAV_FUNCTION_TRAITS_MEMBER()
+    QMLAV_FUNCTION_TRAITS_MEMBER(const)
+    QMLAV_FUNCTION_TRAITS_MEMBER(&)
+    QMLAV_FUNCTION_TRAITS_MEMBER(&&)
+    QMLAV_FUNCTION_TRAITS_MEMBER(const &)
+    QMLAV_FUNCTION_TRAITS_MEMBER(const &&)
+    QMLAV_FUNCTION_TRAITS_MEMBER(noexcept)
+    QMLAV_FUNCTION_TRAITS_MEMBER(const noexcept)
+    QMLAV_FUNCTION_TRAITS_MEMBER(& noexcept)
+    QMLAV_FUNCTION_TRAITS_MEMBER(&& noexcept)
+    QMLAV_FUNCTION_TRAITS_MEMBER(const & noexcept)
+    QMLAV_FUNCTION_TRAITS_MEMBER(const && noexcept)
+
+    QMLAV_FUNCTOR_TRAITS_MEMBER()
+    QMLAV_FUNCTOR_TRAITS_MEMBER(const)
+    QMLAV_FUNCTOR_TRAITS_MEMBER(&)
+    QMLAV_FUNCTOR_TRAITS_MEMBER(&&)
+    QMLAV_FUNCTOR_TRAITS_MEMBER(const &)
+    QMLAV_FUNCTOR_TRAITS_MEMBER(const &&)
+    QMLAV_FUNCTOR_TRAITS_MEMBER(noexcept)
+    QMLAV_FUNCTOR_TRAITS_MEMBER(const noexcept)
+    QMLAV_FUNCTOR_TRAITS_MEMBER(& noexcept)
+    QMLAV_FUNCTOR_TRAITS_MEMBER(&& noexcept)
+    QMLAV_FUNCTOR_TRAITS_MEMBER(const & noexcept)
+    QMLAV_FUNCTOR_TRAITS_MEMBER(const && noexcept)
+
+#undef QMLAV_FUNCTION_TRAITS_MEMBER
+#undef QMLAV_FUNCTOR_TRAITS_MEMBER
 
     template<typename Callable>
     using InvokeArgsTuple = typename FunctionTraits<std::remove_reference_t<Callable>>::ArgsTuple;

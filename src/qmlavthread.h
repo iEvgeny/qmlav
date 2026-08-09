@@ -121,10 +121,13 @@ class QmlAVWorker : public QmlAVWorkerInvokeImpl<Callable>
     using __Super = QmlAVWorkerInvokeImpl<Callable>;
 
 public:
-    // NOTE: Here and below, we don't rely on "Callable" deduction, so we don't use universal/forwarding references.
-    QmlAVWorker(Callable callable, Args ...args)
-        : __Super(std::forward<Callable>(callable))
-        , m_args(std::forward<Args>(args)...) { }
+    // SFINAE guard (enable_if): prevents this greedy forwarding ctor from hijacking the
+    // implicit copy/move ctors (forwarding ref beats the copy ctor's const&).
+    template<typename F, typename... A,
+             typename = std::enable_if_t<std::is_constructible_v<Callable, F>>>
+    QmlAVWorker(F&& callable, A&&... args)
+        : __Super(std::forward<F>(callable))
+        , m_args(std::forward<A>(args)...) { }
 
     virtual QmlAVLoopController invoke() override final {
         return this->invokeImpl(m_args);
@@ -160,11 +163,7 @@ public:
             }
         } else {
             if (m_argsQueue->dequeue(args)) {
-                if constexpr (__Super::isVoidResult()) {
-                    return this->invokeImpl(args);
-                } else {
-                    this->invokeImpl(args);
-                }
+                this->invokeImpl(args);
             }
         }
 
@@ -342,7 +341,8 @@ class QmlAVThreadTask
 public:
     QmlAVThreadTask(Callable &&callable)
         : m_callable(std::forward<Callable>(callable))
-        , m_argsQueue(std::make_shared<ArgsQueue>()) { }
+        , m_argsQueue(std::make_shared<ArgsQueue>())
+        , m_started(false) { }
 
     auto argsQueue() const { return m_argsQueue; }
 
@@ -352,7 +352,10 @@ public:
     }
 
     auto getLiveController() {
-        auto worker = std::make_unique<QmlAVWorker<Callable, std::shared_ptr<ArgsQueue>>>(m_callable, m_argsQueue);
+        assert(!m_started);
+        m_started = true;
+
+        auto worker = std::make_unique<QmlAVWorker<Callable, std::shared_ptr<ArgsQueue>>>(std::move(m_callable), m_argsQueue);
         auto thread = std::make_shared<QmlAVWorkerThread>(std::move(worker));
 
         using Result = QmlAVUtils::InvokeResult<Callable>;
@@ -362,6 +365,7 @@ public:
 private:
     Callable m_callable;
     std::shared_ptr<ArgsQueue> m_argsQueue;
+    bool m_started;
 };
 
 class QmlAVThread
