@@ -54,6 +54,16 @@ struct QmlAVAtomic
     T operator+=(T i) noexcept { return m_value.fetch_add(i, StoreOrder); }
     T operator-=(T i) noexcept { return m_value.fetch_sub(i, StoreOrder); }
 
+    // Thin passthrough of the std::atomic primitives.
+    // If the current value == expected, store desired (with StoreOrder) and return
+    // true; otherwise reload expected with LoadOrder and return false.
+    bool compare_exchange_strong(T &expected, T desired) noexcept {
+        return m_value.compare_exchange_strong(expected, desired, StoreOrder, LoadOrder);
+    }
+    bool compare_exchange_weak(T &expected, T desired) noexcept {
+        return m_value.compare_exchange_weak(expected, desired, StoreOrder, LoadOrder);
+    }
+
     // TODO: Implement other members as needed
 
 private:
@@ -268,43 +278,43 @@ public:
     struct FunctionTraits<Ret (*)(Args...)>
         : public FunctionTraits<Ret (Args...)> { };
 
-#define QMLAV_FUNCTION_TRAITS_MEMBER(M) \
+#define QMLAV_FUNCTION_TRAITS_IMPL(QUALIFIER) \
     template<typename Ret, typename Type, typename ...Args> \
-        struct FunctionTraits<Ret (Type::*)(Args...) M> \
+        struct FunctionTraits<Ret (Type::*)(Args...) QUALIFIER> \
         : public FunctionTraits<Ret (Type*, Args...)> { };
-#define QMLAV_FUNCTOR_TRAITS_MEMBER(M) \
+#define QMLAV_FUNCTOR_TRAITS_IMPL(QUALIFIER) \
     template<typename Ret, typename Type, typename ...Args> \
-        struct FunctorTraits<Ret (Type::*)(Args...) M> \
+        struct FunctorTraits<Ret (Type::*)(Args...) QUALIFIER> \
         : public FunctionTraits<Ret (Args...)> { };
 
-    QMLAV_FUNCTION_TRAITS_MEMBER()
-    QMLAV_FUNCTION_TRAITS_MEMBER(const)
-    QMLAV_FUNCTION_TRAITS_MEMBER(&)
-    QMLAV_FUNCTION_TRAITS_MEMBER(&&)
-    QMLAV_FUNCTION_TRAITS_MEMBER(const &)
-    QMLAV_FUNCTION_TRAITS_MEMBER(const &&)
-    QMLAV_FUNCTION_TRAITS_MEMBER(noexcept)
-    QMLAV_FUNCTION_TRAITS_MEMBER(const noexcept)
-    QMLAV_FUNCTION_TRAITS_MEMBER(& noexcept)
-    QMLAV_FUNCTION_TRAITS_MEMBER(&& noexcept)
-    QMLAV_FUNCTION_TRAITS_MEMBER(const & noexcept)
-    QMLAV_FUNCTION_TRAITS_MEMBER(const && noexcept)
+    QMLAV_FUNCTION_TRAITS_IMPL()
+    QMLAV_FUNCTION_TRAITS_IMPL(const)
+    QMLAV_FUNCTION_TRAITS_IMPL(&)
+    QMLAV_FUNCTION_TRAITS_IMPL(&&)
+    QMLAV_FUNCTION_TRAITS_IMPL(const &)
+    QMLAV_FUNCTION_TRAITS_IMPL(const &&)
+    QMLAV_FUNCTION_TRAITS_IMPL(noexcept)
+    QMLAV_FUNCTION_TRAITS_IMPL(const noexcept)
+    QMLAV_FUNCTION_TRAITS_IMPL(& noexcept)
+    QMLAV_FUNCTION_TRAITS_IMPL(&& noexcept)
+    QMLAV_FUNCTION_TRAITS_IMPL(const & noexcept)
+    QMLAV_FUNCTION_TRAITS_IMPL(const && noexcept)
 
-    QMLAV_FUNCTOR_TRAITS_MEMBER()
-    QMLAV_FUNCTOR_TRAITS_MEMBER(const)
-    QMLAV_FUNCTOR_TRAITS_MEMBER(&)
-    QMLAV_FUNCTOR_TRAITS_MEMBER(&&)
-    QMLAV_FUNCTOR_TRAITS_MEMBER(const &)
-    QMLAV_FUNCTOR_TRAITS_MEMBER(const &&)
-    QMLAV_FUNCTOR_TRAITS_MEMBER(noexcept)
-    QMLAV_FUNCTOR_TRAITS_MEMBER(const noexcept)
-    QMLAV_FUNCTOR_TRAITS_MEMBER(& noexcept)
-    QMLAV_FUNCTOR_TRAITS_MEMBER(&& noexcept)
-    QMLAV_FUNCTOR_TRAITS_MEMBER(const & noexcept)
-    QMLAV_FUNCTOR_TRAITS_MEMBER(const && noexcept)
+    QMLAV_FUNCTOR_TRAITS_IMPL()
+    QMLAV_FUNCTOR_TRAITS_IMPL(const)
+    QMLAV_FUNCTOR_TRAITS_IMPL(&)
+    QMLAV_FUNCTOR_TRAITS_IMPL(&&)
+    QMLAV_FUNCTOR_TRAITS_IMPL(const &)
+    QMLAV_FUNCTOR_TRAITS_IMPL(const &&)
+    QMLAV_FUNCTOR_TRAITS_IMPL(noexcept)
+    QMLAV_FUNCTOR_TRAITS_IMPL(const noexcept)
+    QMLAV_FUNCTOR_TRAITS_IMPL(& noexcept)
+    QMLAV_FUNCTOR_TRAITS_IMPL(&& noexcept)
+    QMLAV_FUNCTOR_TRAITS_IMPL(const & noexcept)
+    QMLAV_FUNCTOR_TRAITS_IMPL(const && noexcept)
 
-#undef QMLAV_FUNCTION_TRAITS_MEMBER
-#undef QMLAV_FUNCTOR_TRAITS_MEMBER
+#undef QMLAV_FUNCTION_TRAITS_IMPL
+#undef QMLAV_FUNCTOR_TRAITS_IMPL
 
     template<typename Callable>
     using InvokeArgsTuple = typename FunctionTraits<std::remove_reference_t<Callable>>::ArgsTuple;

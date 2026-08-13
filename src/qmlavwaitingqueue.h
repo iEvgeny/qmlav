@@ -19,19 +19,10 @@ public:
     }
 
     QmlAVWaitingQueue(const QmlAVWaitingQueue &other) = delete;
-    QmlAVWaitingQueue(QmlAVWaitingQueue &&other) {
-        std::scoped_lock lock(m_mutex, other.m_mutex);
-        m_queue = std::move(other.m_queue);
-    }
+    QmlAVWaitingQueue(QmlAVWaitingQueue &&other) = delete;
 
     QmlAVWaitingQueue &operator=(const QmlAVWaitingQueue &other) = delete;
-    QmlAVWaitingQueue &operator=(QmlAVWaitingQueue &&other) {
-        std::scoped_lock lock(m_mutex, other.m_mutex);
-        if (this != std::addressof(other)) {
-            m_queue = std::move(other.m_queue);
-        }
-        return *this;
-    }
+    QmlAVWaitingQueue &operator=(QmlAVWaitingQueue &&other) = delete;
 
     template<typename URef>
     void enqueue(URef &&value) {
@@ -45,6 +36,9 @@ public:
 
             m_queue.push(std::forward<URef>(value));
         }
+
+        // NOTE: Designed for one queue = one consumer
+        // More consumers would still work but underperform (notify_one fairness)
         m_consumerCond.notify_one();
     }
     bool head(T &value) {

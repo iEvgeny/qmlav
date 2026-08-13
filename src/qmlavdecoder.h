@@ -73,9 +73,6 @@ public:
     auto &counters() { return m_counters; }
     const auto &counters() const { return m_counters; }
 
-signals:
-    void frameFinished(const std::shared_ptr<QmlAVFrame> frame);
-
 protected:
     QmlAVLoopController worker(const AVPacketPtr &avPacket);
 

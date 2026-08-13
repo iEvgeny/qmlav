@@ -155,11 +155,11 @@ void QmlAVDemuxer::start()
 
 int64_t QmlAVDemuxer::startTime() const
 {
-    if (m_context->clock.startTime == 0) {
-        m_context->clock.startTime = QmlAVDecoder::Clock::now();
-    }
-
-    return m_context->clock.startTime;
+    // Lazy-init via CAS
+    auto &st = m_context->clock.startTime;
+    int64_t expected = 0;
+    st.compare_exchange_strong(expected, QmlAVDecoder::Clock::now());
+    return st;
 }
 
 QVariantMap QmlAVDemuxer::stat() const
