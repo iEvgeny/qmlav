@@ -5,6 +5,13 @@
 
 #if defined(__linux__) && !defined(__ANDROID__)
 
+#include <memory>
+
+// Zero-copy VAAPI → DMA-BUF → EGLImage → GL.
+// Qt5 VideoOutput/GLTextureHandle can only sample an RGB TEXTURE_2D, so NV12 is
+// converted on the GPU into a persistent FBO texture (no CPU readback).
+// Qt6 RHI can consume the imported planes directly and drop the blit.
+
 class QmlAVHWOutput_VAAPI_EGL final : public QmlAVHWOutput
 {
 public:
@@ -15,6 +22,13 @@ public:
     QmlAVPixelFormat pixelFormat() const override { return AV_PIX_FMT_BGR32; }
     QAbstractVideoBuffer::HandleType handleType() const override { return QAbstractVideoBuffer::GLTextureHandle; }
     QVariant handle(const QmlAVVideoFrame &videoFrame) override;
+
+private:
+    struct Priv;
+    std::unique_ptr<Priv> m_egl;
+
+    bool initializeEGL(int width, int height);
+    void cleanupEGL();
 };
 
 #endif // __linux__

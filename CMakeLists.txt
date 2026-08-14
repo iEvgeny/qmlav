@@ -26,7 +26,7 @@ set(QMLAV_FILES
 
 set(QMLAV_LINK_DEPENDENCIES avformat avcodec avutil swscale swresample avdevice)
 if (UNIX AND NOT ANDROID)
-     list(APPEND QMLAV_LINK_DEPENDENCIES va va-x11 GL GLX X11)
+     list(APPEND QMLAV_LINK_DEPENDENCIES va va-x11 EGL GL GLX X11)
 endif()
 
 set(QMLAV_INCLUDE ${QMLAV_INCLUDE} PARENT_SCOPE)
