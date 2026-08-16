@@ -144,7 +144,7 @@ QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
 }
 
 QmlAVVideoDecoder::QmlAVVideoDecoder(QmlAVMediaContextHolder *context)
-    : QmlAVDecoder(context)
+    : QmlAVDecoder(context, TypeVideo)
 {   
     m_frameQueueLimit.setLimit(VIDEO_FRAMES_LIMIT);
 }
@@ -232,7 +232,7 @@ const std::shared_ptr<QmlAVFrame> QmlAVVideoDecoder::makeFrame(const AVFramePtr 
 }
 
 QmlAVAudioDecoder::QmlAVAudioDecoder(QmlAVMediaContextHolder *context)
-    : QmlAVDecoder(context)
+    : QmlAVDecoder(context, TypeAudio)
 {
     m_frameQueueLimit.setLimit(AUDIO_FRAMES_LIMIT);
 }

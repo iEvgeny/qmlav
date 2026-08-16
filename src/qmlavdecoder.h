@@ -54,7 +54,14 @@ public:
     virtual ~QmlAVDecoder();
 
     Type type() const { return m_type; }
-    QString typeName() const { return m_type == TypeVideo ? "Video" : "Audio"; }
+    QString typeName() const {
+        switch (m_type) {
+        case TypeVideo:  return QStringLiteral("Video");
+        case TypeAudio:  return QStringLiteral("Audio");
+        case TypeUnknown:
+        default:         return QStringLiteral("Unknown");
+        }
+    }
 
     bool open(const AVStream *avStream, const QmlAVOptions &avOptions);
     bool isOpen() const;
