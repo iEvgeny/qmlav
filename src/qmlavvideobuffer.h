@@ -12,6 +12,7 @@ class QmlAVVideoBuffer : public QAbstractPlanarVideoBuffer
 {
 public:
     QmlAVVideoBuffer(const QmlAVVideoFrame &videoFrame, QAbstractVideoBuffer::HandleType type);
+    virtual ~QmlAVVideoBuffer();
 
     struct MapData final
     {

@@ -14,6 +14,11 @@ QmlAVVideoBuffer::QmlAVVideoBuffer(const QmlAVVideoFrame &videoFrame, QAbstractV
 {
 }
 
+QmlAVVideoBuffer::~QmlAVVideoBuffer()
+{
+    sws_freeContext(m_swsCtx);
+}
+
 int QmlAVVideoBuffer::map(QAbstractVideoBuffer::MapMode mode, int *numBytes, int bytesPerLine[], uchar *data[])
 {
     if (mode == QAbstractVideoBuffer::NotMapped) {
@@ -95,7 +100,6 @@ AVFramePtr QmlAVVideoBuffer::swsScale(const QmlAVPixelFormat &dstFormat)
         av_frame_get_buffer(avFrameSws, FFMPEG_ALIGNMENT);
 
         sws_scale(m_swsCtx, m_videoFrame.avFrame()->data, m_videoFrame.avFrame()->linesize, 0, m_videoFrame.avFrame()->height, avFrameSws->data, avFrameSws->linesize);
-        sws_freeContext(m_swsCtx);
     }
 
     return avFrameSws;
