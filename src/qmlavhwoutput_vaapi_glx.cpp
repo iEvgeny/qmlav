@@ -55,7 +55,11 @@ QVariant QmlAVHWOutput_VAAPI_GLX::handle(const QmlAVVideoFrame &videoFrame)
         return {};
     }
 
-    vaSyncSurface(vaDisplay, vaSurface);
+    VAStatus syncStatus = vaSyncSurface(vaDisplay, vaSurface);
+    if (syncStatus != VA_STATUS_SUCCESS) {
+        logWarning() << "vaSyncSurface() failed: 0x" << QmlAV::Hex << syncStatus;
+        return {};
+    }
 
     uint status = vaPutSurface(vaDisplay, vaSurface, m_x11Pixmap,
                                0, 0, videoFrame.width(), videoFrame.height(),
