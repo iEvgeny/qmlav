@@ -129,7 +129,6 @@ class AVSmartPtr
 {
 public:
     AVSmartPtr() { m_ref = av_alloc(); }
-    AVSmartPtr(const T *ref) noexcept { m_ref = ref; assert(m_ref); }
     AVSmartPtr(const AVSmartPtr &other) {
         m_ref = av_alloc();
         if (m_ref && other.m_ref) {
@@ -142,7 +141,7 @@ public:
             av_move_ref(m_ref, other.m_ref);
         }
     }
-    virtual ~AVSmartPtr() {
+    ~AVSmartPtr() {
         av_free(&m_ref);
     }
 
