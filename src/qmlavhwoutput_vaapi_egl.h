@@ -31,7 +31,7 @@ private:
     std::unique_ptr<Priv> m_egl;
 
     bool initializeEGL(int width, int height);
-    GLuint buildProgram(bool core, bool gles);
+    GLuint buildProgram(bool core, bool gles, int planeCount, int bitDepth, bool chromaSwap);
     void cleanupEGL();
     void setTextureParams();
     void setupAttribs();

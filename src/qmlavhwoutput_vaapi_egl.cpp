@@ -3,7 +3,6 @@
 #if defined(__linux__) && !defined(__ANDROID__)
 #include "qmlavutils.h"
 
-#include <array>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -44,9 +43,12 @@ extern "C" {
 
 namespace {
 
-constexpr uint32_t kDrmFormatR8   = MKTAG('R', '8', ' ', ' ');
-constexpr uint32_t kDrmFormatGR88 = MKTAG('G', 'R', '8', '8');
-constexpr uint32_t kDrmFormatNV12 = MKTAG('N', 'V', '1', '2');
+constexpr uint32_t kDrmFormatR8     = MKTAG('R', '8', ' ', ' ');
+constexpr uint32_t kDrmFormatR16    = MKTAG('R', '1', '6', ' ');
+constexpr uint32_t kDrmFormatGR88   = MKTAG('G', 'R', '8', '8');
+constexpr uint32_t kDrmFormatGR1616 = MKTAG('G', 'R', '1', '6');
+constexpr uint32_t kDrmFormatXRGB   = MKTAG('X', 'R', '2', '4');
+constexpr uint32_t kDrmFormatXBGR   = MKTAG('X', 'B', '2', '4');
 constexpr uint64_t kDrmModInvalid = 0x00ffffffffffffffULL;
 
 // Older Mesa versions shipped eglext.h without the modifier constants.
@@ -62,6 +64,44 @@ typedef void *GLeglImageOES;
 #ifndef PFNGLEGLIMAGETARGETTEXTURE2DOESPROC
 typedef void (*PFNGLEGLIMAGETARGETTEXTURE2DOESPROC)(GLenum target, GLeglImageOES image);
 #endif
+
+// Describes how an AV pixel format maps to DRM planes and to the shader.
+struct PlaneFormat {
+    AVPixelFormat avFormat;
+    int planeCount;            // 1 (RGB/packed) or 2/3 (YUV planar)
+    uint32_t fourcc[3];        // DRM fourcc per flattened plane
+    int bitDepth;              // 8/10/16
+    bool chromaSwap;           // NV21-style: UV interleaved as VU
+    bool isRgb;                // no YUV conversion needed
+};
+
+const PlaneFormat *findPlaneFormat(AVPixelFormat avFormat)
+{
+    static const PlaneFormat formats[] = {
+        // 2-plane semi-planar 4:2:0
+        { AV_PIX_FMT_NV12,  2, { kDrmFormatR8,    kDrmFormatGR88,  0 }, 8,  false, false },
+        { AV_PIX_FMT_NV21,  2, { kDrmFormatR8,    kDrmFormatGR88,  0 }, 8,  true,  false },
+        { AV_PIX_FMT_P010,  2, { kDrmFormatR16,   kDrmFormatGR1616, 0 }, 10, false, false },
+        { AV_PIX_FMT_P010LE,2, { kDrmFormatR16,   kDrmFormatGR1616, 0 }, 10, false, false },
+        { AV_PIX_FMT_P016,  2, { kDrmFormatR16,   kDrmFormatGR1616, 0 }, 16, false, false },
+        { AV_PIX_FMT_P016LE,2, { kDrmFormatR16,   kDrmFormatGR1616, 0 }, 16, false, false },
+        // 3-plane planar 4:2:0
+        { AV_PIX_FMT_YUV420P,   3, { kDrmFormatR8,  kDrmFormatR8, kDrmFormatR8 }, 8,  false, false },
+        { AV_PIX_FMT_YUVJ420P,  3, { kDrmFormatR8,  kDrmFormatR8, kDrmFormatR8 }, 8,  false, false },
+        { AV_PIX_FMT_YUV420P10LE, 3, { kDrmFormatR16, kDrmFormatR16, kDrmFormatR16 }, 10, false, false },
+        { AV_PIX_FMT_YUV420P16LE, 3, { kDrmFormatR16, kDrmFormatR16, kDrmFormatR16 }, 16, false, false },
+        // RGB passthrough (no YUV conversion)
+        { AV_PIX_FMT_BGR0,  1, { kDrmFormatXBGR, 0, 0 }, 8, false, true },
+        { AV_PIX_FMT_0RGB,  1, { kDrmFormatXRGB, 0, 0 }, 8, false, true },
+    };
+
+    for (const PlaneFormat &f : formats) {
+        if (f.avFormat == avFormat) {
+            return &f;
+        }
+    }
+    return nullptr;
+}
 
 struct DmaPlane {
     int fd = -1;
@@ -87,34 +127,34 @@ struct PrimeGuard {
     ~PrimeGuard() { closePrimeFds(desc); }
 };
 
-// Flatten composed NV12 (1 layer / 2 planes) or separate R8+GR88 layers
-// into two single-plane descriptors for EGLImage import.
-bool flattenPrime(const VADRMPRIMESurfaceDescriptor &prime, int width, int height,
-                  std::array<DmaPlane, 2> &planes)
+// Flatten the DRM-PRIME surface into `planeCount` single-plane descriptors for
+// EGLImage import. A composed layer (NV12: 1 layer / 2 planes) is split into
+// its single-plane components; separate layers are passed through.
+bool flattenPrime(const VADRMPRIMESurfaceDescriptor &prime, const PlaneFormat &fmt,
+                  int width, int height, DmaPlane *planes)
 {
     int n = 0;
 
     for (uint32_t l = 0; l < prime.num_layers; ++l) {
         const auto &layer = prime.layers[l];
 
+        // A packed 2-plane layer (NV12/P010) maps to fmt.fourcc[0] + fourcc[1].
+        const uint32_t *layerFourcc = (layer.num_planes == 2) ? fmt.fourcc : nullptr;
+
         for (uint32_t p = 0; p < layer.num_planes; ++p) {
-            if (n >= 2) {
+            if (n >= fmt.planeCount) {
                 return false;
             }
 
             const auto &obj = prime.objects[layer.object_index[p]];
-            DmaPlane &pl = planes[static_cast<size_t>(n)];
+            DmaPlane &pl = planes[n];
             pl.fd = obj.fd;
             pl.offset = layer.offset[p];
             pl.pitch = layer.pitch[p];
             pl.modifier = obj.drm_format_modifier;
+            pl.fourcc = layerFourcc ? layerFourcc[p] : layer.drm_format;
 
-            if (layer.drm_format == kDrmFormatNV12 && layer.num_planes > 1) {
-                pl.fourcc = (p == 0) ? kDrmFormatR8 : kDrmFormatGR88;
-            } else {
-                pl.fourcc = layer.drm_format;
-            }
-
+            // Y plane is full-res; chroma planes are half-res for 4:2:0.
             if (n == 0) {
                 pl.width = width;
                 pl.height = height;
@@ -127,18 +167,18 @@ bool flattenPrime(const VADRMPRIMESurfaceDescriptor &prime, int width, int heigh
         }
     }
 
-    return n == 2;
+    return n == fmt.planeCount;
 }
 
-// Export the VA surface as two single-plane DMA-BUF descriptors. Tries the
-// separate-layers layout first, falls back to a composed NV12 layer.
+// Export the VA surface as single-plane DMA-BUF descriptors (one per plane of
+// `fmt`). Tries the separate-layers layout first, falls back to composed.
 // The caller owns the descriptor lifetime (its fds must stay open for as long
 // as the EGLImages created from them are in use), so `desc` is passed in.
 // Returns false on failure; *vaStatus is set to the VA error code when the
 // export itself failed (as opposed to an unexpected plane layout).
 bool exportPlanes(VADisplay vaDisplay, VASurfaceID vaSurface, int width, int height,
-                  VADRMPRIMESurfaceDescriptor &desc, std::array<DmaPlane, 2> &planes,
-                  VAStatus *vaStatus)
+                  const PlaneFormat &fmt, VADRMPRIMESurfaceDescriptor &desc,
+                  DmaPlane *planes, VAStatus *vaStatus)
 {
     uint32_t exportFlags = VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS;
     VAStatus status = vaExportSurfaceHandle(vaDisplay, vaSurface,
@@ -157,7 +197,7 @@ bool exportPlanes(VADisplay vaDisplay, VASurfaceID vaSurface, int width, int hei
         return false;
     }
 
-    return flattenPrime(desc, width, height, planes);
+    return flattenPrime(desc, fmt, width, height, planes);
 }
 
 // Build the EGL_LINUX_DMA_BUF_EXT attribute list for one plane and create the
@@ -229,7 +269,10 @@ std::string buildVertexSource(bool core, bool gles)
     return src;
 }
 
-std::string buildFragmentSource(bool core, bool gles)
+// Build a YUV->RGB fragment shader for `fmt` (1/2/3 planes, 8/10/16-bit).
+// The matrix is BT.601 limited-range (the MVP's fixed behavior); colorspace
+// handling (BT.709/2020, full range) is a separate step.
+std::string buildFragmentSource(bool core, bool gles, const PlaneFormat &fmt)
 {
     std::string src;
     if (core) {
@@ -241,8 +284,10 @@ std::string buildFragmentSource(bool core, bool gles)
         src = "#version 120\n";
     }
 
-    src += "uniform sampler2D texY;\n"
-           "uniform sampler2D texUV;\n";
+    // Sampler declarations: tex0..texN.
+    for (int i = 0; i < fmt.planeCount; ++i) {
+        src += "uniform sampler2D tex" + std::to_string(i) + ";\n";
+    }
     if (core) {
         src += "in vec2 vTex;\n"
                "out vec4 fragColor;\n";
@@ -251,14 +296,46 @@ std::string buildFragmentSource(bool core, bool gles)
     }
     const std::string sample = core ? std::string("texture") : std::string("texture2D");
     const std::string out = core ? std::string("fragColor") : std::string("gl_FragColor");
-    src += "void main() {\n"
-           "    float y = " + sample + "(texY, vTex).r;\n"
-           "    vec2 uv = " + sample + "(texUV, vTex).rg - vec2(0.5);\n"
-           "    y = (y - 0.062745) * 1.164;\n"
-           "    " + out + " = vec4(y + 1.596 * uv.y,\n"
-           "                     y - 0.391 * uv.x - 0.813 * uv.y,\n"
-           "                     y + 2.018 * uv.x, 1.0);\n"
-           "}\n";
+
+    // Normalization: GL maps integer textures to [0,1] by dividing by 65535
+    // (for R16/GR1616). P010 stores 10 significant bits in the HIGH bits of a
+    // 16-bit word, so the sampled value is v10*64/65535; scale back to v10/1023.
+    // P016 uses the full 16 bits, so GL's own normalization is already correct.
+    const char *yScale = "1.0";
+    const char *uvScale = "1.0";
+    if (fmt.bitDepth == 10) {
+        // sampled = v10 * 64 / 65535  ->  multiply by 65535/(64*1023) ~= 1.00096
+        yScale = "65535.0 / 65472.0";
+        uvScale = "65535.0 / 65472.0";
+    }
+
+    src += "void main() {\n";
+    if (fmt.planeCount == 1) {
+        // RGB passthrough.
+        src += "    " + out + " = vec4(" + sample + "(tex0, vTex).rgb, 1.0);\n";
+    } else if (fmt.planeCount == 2) {
+        // Semi-planar: tex0 = Y, tex1 = interleaved UV (or VU for NV21).
+        src += "    float y = " + sample + "(tex0, vTex).r * " + yScale + ";\n"
+               "    vec2 uv = " + sample + "(tex1, vTex).rg;\n";
+        if (fmt.chromaSwap) {
+            src += "    uv = uv.yx;\n";
+        }
+        src += "    uv -= vec2(0.5);\n"
+               "    y = (y - 0.062745) * 1.164;\n"
+               "    " + out + " = vec4(y + 1.596 * uv.y,\n"
+               "                     y - 0.391 * uv.x - 0.813 * uv.y,\n"
+               "                     y + 2.018 * uv.x, 1.0);\n";
+    } else {
+        // Planar: tex0 = Y, tex1 = U, tex2 = V.
+        src += "    float y = " + sample + "(tex0, vTex).r * " + yScale + ";\n"
+               "    float u = " + sample + "(tex1, vTex).r * " + uvScale + " - 0.5;\n"
+               "    float v = " + sample + "(tex2, vTex).r * " + uvScale + " - 0.5;\n"
+               "    y = (y - 0.062745) * 1.164;\n"
+               "    " + out + " = vec4(y + 1.596 * v,\n"
+               "                     y - 0.391 * u - 0.813 * v,\n"
+               "                     y + 2.018 * u, 1.0);\n";
+    }
+    src += "}\n";
     return src;
 }
 
@@ -348,12 +425,17 @@ struct QmlAVHWOutput_VAAPI_EGL::Priv
     PFNGLEGLIMAGETARGETTEXTURE2DOESPROC imageTargetTexture2D = nullptr;
 
     GLuint program = 0;
-    GLint texYLoc = -1;
-    GLint texUVLoc = -1;
+    GLint texLoc[3] = {-1, -1, -1}; // uniform locations for tex0..tex2
+
+    // Shader-relevant format state (for lazy program build / rebuild).
+    int planeCount = 0;
+    int bitDepth = 0;
+    bool coreProfile = false;
+    bool gles = false;
 
     GLuint rgbTex = 0;
     GLuint fbo = 0;
-    GLuint planeTex[2] = {0, 0};
+    GLuint planeTex[3] = {0, 0, 0};
     GLuint vbo = 0;
     GLuint vao = 0;
 };
@@ -380,8 +462,9 @@ QVariant QmlAVHWOutput_VAAPI_EGL::handle(const QmlAVVideoFrame &videoFrame)
 
     // Qt5 VideoOutput + GLTextureHandle can only sample an RGB TEXTURE_2D.
     const QmlAVPixelFormat swFormat = videoFrame.swPixelFormat();
-    if (swFormat != QmlAVPixelFormat(AV_PIX_FMT_NV12)) {
-        logWarning() << "VAAPI-EGL MVP supports NV12 only, got " << swFormat;
+    const PlaneFormat *fmt = findPlaneFormat(AVPixelFormat(swFormat));
+    if (!fmt) {
+        logWarning() << "VAAPI-EGL: unsupported sw pixel format " << swFormat;
         return {};
     }
 
@@ -406,8 +489,59 @@ QVariant QmlAVHWOutput_VAAPI_EGL::handle(const QmlAVVideoFrame &videoFrame)
     // Capture Qt Quick state *before* any of our GL calls, including init.
     GLStateGuard state(ctx);
 
-    if (!m_egl->ready && !initializeEGL(videoFrame.width(), videoFrame.height())) {
-        return {};
+    // RGB formats need no conversion: return the single plane texture directly.
+    if (fmt->isRgb) {
+        if (!m_egl->ready && !initializeEGL(videoFrame.width(), videoFrame.height())) {
+            return {};
+        }
+        vaSyncSurface(vaDisplay, vaSurface);
+
+        PrimeGuard prime;
+        DmaPlane planes[3]{};
+        VAStatus vaStatus = VA_STATUS_SUCCESS;
+        if (!exportPlanes(vaDisplay, vaSurface, videoFrame.width(), videoFrame.height(),
+                          *fmt, prime.desc, planes, &vaStatus)) {
+            logWarning() << "vaExportSurfaceHandle() failed: 0x" << QmlAV::Hex << vaStatus;
+            return {};
+        }
+
+        EGLImageKHR image = createPlaneImage(m_egl->display, m_egl->createImage,
+                                             m_egl->hasModifiers, planes[0]);
+        if (!image) {
+            logWarning() << "eglCreateImageKHR() failed (0x" << QmlAV::Hex << eglGetError() << ")";
+            return {};
+        }
+
+        // Bind the EGLImage to a plane texture and hand it to Qt directly.
+        glBindTexture(GL_TEXTURE_2D, m_egl->planeTex[0]);
+        setTextureParams();
+        m_egl->imageTargetTexture2D(GL_TEXTURE_2D, image);
+        m_egl->destroyImage(m_egl->display, image);
+        return static_cast<QVariant>(m_egl->planeTex[0]);
+    }
+
+    if (!m_egl->ready) {
+        if (!initializeEGL(videoFrame.width(), videoFrame.height())) {
+            return {};
+        }
+    }
+    if (!m_egl->program) {
+        m_egl->program = buildProgram(m_egl->coreProfile, m_egl->gles, fmt->planeCount, fmt->bitDepth, fmt->chromaSwap);
+        if (!m_egl->program) {
+            return {};
+        }
+        m_egl->planeCount = fmt->planeCount;
+        m_egl->bitDepth = fmt->bitDepth;
+    } else if (m_egl->planeCount != fmt->planeCount || m_egl->bitDepth != fmt->bitDepth) {
+        // Format changed (e.g. NV12 -> P010): rebuild the shader.
+        GLuint prog = buildProgram(m_egl->coreProfile, m_egl->gles, fmt->planeCount, fmt->bitDepth, fmt->chromaSwap);
+        if (!prog) {
+            return {};
+        }
+        glDeleteProgram(m_egl->program);
+        m_egl->program = prog;
+        m_egl->planeCount = fmt->planeCount;
+        m_egl->bitDepth = fmt->bitDepth;
     }
 
     vaSyncSurface(vaDisplay, vaSurface);
@@ -415,26 +549,26 @@ QVariant QmlAVHWOutput_VAAPI_EGL::handle(const QmlAVVideoFrame &videoFrame)
     // The fds owned by `prime` must stay open until the EGLImages below are
     // destroyed, so the guard lives here (not inside exportPlanes).
     PrimeGuard prime;
-    std::array<DmaPlane, 2> planes{};
+    DmaPlane planes[3]{};
     VAStatus vaStatus = VA_STATUS_SUCCESS;
     if (!exportPlanes(vaDisplay, vaSurface, videoFrame.width(), videoFrame.height(),
-                      prime.desc, planes, &vaStatus)) {
+                      *fmt, prime.desc, planes, &vaStatus)) {
         if (vaStatus != VA_STATUS_SUCCESS) {
             logWarning() << "vaExportSurfaceHandle() failed: 0x" << QmlAV::Hex << vaStatus;
         } else {
-            logWarning() << "Unexpected DRM-PRIME layout (need 2 NV12 planes).";
+            logWarning() << "Unexpected DRM-PRIME layout for " << swFormat;
         }
         return {};
     }
 
     QOpenGLExtraFunctions *extra = ctx->extraFunctions();
 
-    EGLImageKHR images[2] = {};
+    EGLImageKHR images[3] = {};
     bool ok = true;
 
-    for (int i = 0; i < 2 && ok; ++i) {
+    for (int i = 0; i < fmt->planeCount && ok; ++i) {
         images[i] = createPlaneImage(m_egl->display, m_egl->createImage,
-                                     m_egl->hasModifiers, planes[static_cast<size_t>(i)]);
+                                     m_egl->hasModifiers, planes[i]);
         if (!images[i]) {
             logWarning() << "eglCreateImageKHR() failed for plane " << i
                          << " (0x" << QmlAV::Hex << eglGetError() << ")";
@@ -453,8 +587,9 @@ QVariant QmlAVHWOutput_VAAPI_EGL::handle(const QmlAVVideoFrame &videoFrame)
         glViewport(0, 0, videoFrame.width(), videoFrame.height());
 
         glUseProgram(m_egl->program);
-        glUniform1i(m_egl->texYLoc, 0);
-        glUniform1i(m_egl->texUVLoc, 1);
+        for (int i = 0; i < fmt->planeCount; ++i) {
+            glUniform1i(m_egl->texLoc[i], i);
+        }
 
         bindQuad(extra);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -498,10 +633,11 @@ static std::string getInfoLog(GLuint obj, bool isProgram)
 }
 
 // Compile and link the YUV->RGB shader program. Returns 0 on failure.
-GLuint QmlAVHWOutput_VAAPI_EGL::buildProgram(bool core, bool gles)
+GLuint QmlAVHWOutput_VAAPI_EGL::buildProgram(bool core, bool gles, int planeCount, int bitDepth, bool chromaSwap)
 {
+    const PlaneFormat fmt{ AV_PIX_FMT_NONE, planeCount, {}, bitDepth, chromaSwap, false };
     const std::string vsrc = buildVertexSource(core, gles);
-    const std::string fsrc = buildFragmentSource(core, gles);
+    const std::string fsrc = buildFragmentSource(core, gles, fmt);
 
     GLuint vs = glCreateShader(GL_VERTEX_SHADER);
     const char *vSrc = vsrc.c_str();
@@ -542,8 +678,9 @@ GLuint QmlAVHWOutput_VAAPI_EGL::buildProgram(bool core, bool gles)
         return 0;
     }
 
-    m_egl->texYLoc = glGetUniformLocation(prog, "texY");
-    m_egl->texUVLoc = glGetUniformLocation(prog, "texUV");
+    for (int i = 0; i < fmt.planeCount; ++i) {
+        m_egl->texLoc[i] = glGetUniformLocation(prog, ("tex" + std::to_string(i)).c_str());
+    }
     return prog;
 }
 
@@ -582,12 +719,12 @@ bool QmlAVHWOutput_VAAPI_EGL::initializeEGL(int width, int height)
 
     const bool gles = ctx->isOpenGLES();
     const bool core = !gles && ctx->format().profile() == QSurfaceFormat::CoreProfile;
+    m_egl->coreProfile = core;
+    m_egl->gles = gles;
 
-    m_egl->program = buildProgram(core, gles);
-    if (!m_egl->program) {
-        cleanupEGL();
-        return false;
-    }
+    // Program is built lazily in handle() once the format is known; for the
+    // RGB path no program is needed at all.
+    m_egl->program = 0;
 
     glGenTextures(1, &m_egl->rgbTex);
     glBindTexture(GL_TEXTURE_2D, m_egl->rgbTex);
@@ -607,7 +744,7 @@ bool QmlAVHWOutput_VAAPI_EGL::initializeEGL(int width, int height)
         return false;
     }
 
-    glGenTextures(2, m_egl->planeTex);
+    glGenTextures(3, m_egl->planeTex);
     initQuad(ctx->extraFunctions());
 
     m_egl->ready = true;
@@ -630,10 +767,11 @@ void QmlAVHWOutput_VAAPI_EGL::cleanupEGL()
             glDeleteBuffers(1, &m_egl->vbo);
             m_egl->vbo = 0;
         }
-        if (m_egl->planeTex[0] || m_egl->planeTex[1]) {
-            glDeleteTextures(2, m_egl->planeTex);
+        if (m_egl->planeTex[0] || m_egl->planeTex[1] || m_egl->planeTex[2]) {
+            glDeleteTextures(3, m_egl->planeTex);
             m_egl->planeTex[0] = 0;
             m_egl->planeTex[1] = 0;
+            m_egl->planeTex[2] = 0;
         }
         if (m_egl->vao) {
             if (auto *extra = ctx->extraFunctions()) {
@@ -647,6 +785,7 @@ void QmlAVHWOutput_VAAPI_EGL::cleanupEGL()
         m_egl->vbo = 0;
         m_egl->planeTex[0] = 0;
         m_egl->planeTex[1] = 0;
+        m_egl->planeTex[2] = 0;
         m_egl->vao = 0;
     }
 
@@ -654,8 +793,11 @@ void QmlAVHWOutput_VAAPI_EGL::cleanupEGL()
         glDeleteProgram(m_egl->program);
     }
     m_egl->program = 0;
-    m_egl->texYLoc = -1;
-    m_egl->texUVLoc = -1;
+    m_egl->texLoc[0] = -1;
+    m_egl->texLoc[1] = -1;
+    m_egl->texLoc[2] = -1;
+    m_egl->planeCount = 0;
+    m_egl->bitDepth = 0;
     m_egl->display = nullptr;
     m_egl->hasModifiers = false;
     m_egl->ready = false;
