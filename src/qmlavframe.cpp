@@ -78,7 +78,12 @@ QmlAVVideoFrame::QmlAVVideoFrame(const AVFramePtr &avFrame, const std::shared_pt
 
 bool QmlAVVideoFrame::isValid() const
 {
-    return context() && (avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3]);
+    if (!context()) {
+        return false;
+    }
+
+    return isHWDecoded() || // HW-frame
+           avFrame()->data[0] || avFrame()->data[1] || avFrame()->data[2] || avFrame()->data[3]; // SW-frame
 }
 
 AVRational QmlAVVideoFrame::sampleAspectRatio() const
