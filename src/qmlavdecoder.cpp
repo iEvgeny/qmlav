@@ -33,13 +33,22 @@ QmlAVDecoder::~QmlAVDecoder()
     avcodec_free_context(&m_avCodecCtx);
 }
 
-bool QmlAVDecoder::open(const AVStream *avStream, const QmlAVOptions &avOptions)
+bool QmlAVDecoder::open(int streamIndex, const QmlAVOptions &avOptions)
 {
     int ret;
 
     if (m_avCodecCtx) {
         return false;
     }
+
+    // TODO: C++20 std::cmp_less(streamIndex, avFormatCtx->nb_streams)
+    AVFormatContext *avFormatCtx = m_context->avFormatCtx;
+    if (!avFormatCtx || streamIndex < 0 || static_cast<unsigned>(streamIndex) >= avFormatCtx->nb_streams) {
+        logWarning() << "Stream index " << streamIndex << " is out of range";
+        return false;
+    }
+
+    const AVStream *avStream = avFormatCtx->streams[streamIndex];
 
     const AVCodec *codec = avOptions.avCodec(avStream->codecpar);
     if (codec) {
@@ -130,7 +139,7 @@ QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
 
                 if (!m_context->clock.realTime) {
                     // Primitive syncing for local playback
-                    auto presentTime = m_context->demuxer->startTime() + f->pts() - f->startPts();
+                    auto presentTime = m_context->clock.startTime() + f->pts() - f->startPts();
                     return QmlAVLoopController(QmlAVLoopController::Retry, presentTime - Clock::now());
                 }
             }
@@ -145,7 +154,7 @@ QmlAVLoopController QmlAVDecoder::worker(const AVPacketPtr &avPacket)
 
 QmlAVVideoDecoder::QmlAVVideoDecoder(QmlAVMediaContextHolder *context)
     : QmlAVDecoder(context, TypeVideo)
-{   
+{
     m_frameQueueLimit.setLimit(VIDEO_FRAMES_LIMIT);
 }
 

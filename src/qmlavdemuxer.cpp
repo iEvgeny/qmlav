@@ -13,7 +13,7 @@ QmlAVDemuxer::QmlAVDemuxer(QObject *parent)
 
 QmlAVDemuxer::~QmlAVDemuxer()
 {
-    m_interruptCallback.requestAVInterrupt();
+    m_context->interruptCallback.requestAVInterrupt();
 
     m_loaderThread.requestInterrupt(true);
     m_demuxerThread.requestInterrupt(true);
@@ -51,8 +51,7 @@ void QmlAVDemuxer::load(const QUrl &url, const QmlAVOptions &avOptions)
 
     m_context->clock.realTime = avOptions.realTime().value_or(isRealTime(url));
 
-    m_interruptCallback.setTimeout(avOptions.demuxerTimeout());
-    m_context->avFormatCtx->interrupt_callback = m_interruptCallback;
+    m_context->interruptCallback.setTimeout(avOptions.demuxerTimeout());
 
     emit mediaStatusChanged(QMediaPlayer::LoadingMedia);
 
@@ -122,7 +121,7 @@ void QmlAVDemuxer::start()
             return stop();
         }
 
-        m_interruptCallback.resetTimer();
+        m_context->interruptCallback.resetTimer();
 
         ret = av_read_frame(m_context->avFormatCtx, avPacket);
         if (ret < 0) {
@@ -151,15 +150,6 @@ void QmlAVDemuxer::start()
 
         return QmlAVLoopController::Continue;
     });
-}
-
-int64_t QmlAVDemuxer::startTime() const
-{
-    // Lazy-init via CAS
-    auto &st = m_context->clock.startTime;
-    int64_t expected = 0;
-    st.compare_exchange_strong(expected, QmlAVDecoder::Clock::now());
-    return st;
 }
 
 QVariantMap QmlAVDemuxer::stat() const
@@ -193,14 +183,14 @@ void QmlAVDemuxer::initDecoders(const QmlAVOptions &avOptions)
 {
     int bestVideoStream = av_find_best_stream(m_context->avFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
     if (bestVideoStream >= 0 && !avOptions.videoDisable()) {
-        if (m_context->videoDecoder->open(m_context->avFormatCtx->streams[bestVideoStream], avOptions)) {
+        if (m_context->videoDecoder->open(bestVideoStream, avOptions)) {
             logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_context->videoDecoder->name()).arg(bestVideoStream);
         }
     }
 
     int bestAudioStream = av_find_best_stream(m_context->avFormatCtx, AVMEDIA_TYPE_AUDIO, -1, bestVideoStream, nullptr, 0);
     if (bestAudioStream >= 0 && !avOptions.audioDisable()) {
-        if (m_context->audioDecoder->open(m_context->avFormatCtx->streams[bestAudioStream], avOptions)) {
+        if (m_context->audioDecoder->open(bestAudioStream, avOptions)) {
             logDebug() << QString("Codec \"%1\" for stream #%2 opened.").arg(m_context->audioDecoder->name()).arg(bestAudioStream);
         }
     }

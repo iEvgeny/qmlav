@@ -22,11 +22,20 @@ class QmlAVDecoder
 {
 public:
     struct Clock {
-        QmlAVReleaseAcquireAtomic<int64_t> startTime = 0;
         QmlAVRelaxedAtomic<bool> realTime = true;
         QmlAVReleaseAcquireAtomic<int64_t> leftPts = 0; // PTS of the last destructed frame
 
         static int64_t now() { return av_gettime_relative(); }
+
+        // Lazy-init via CAS
+        int64_t startTime() {
+            int64_t expected = 0;
+            m_startTime.compare_exchange_strong(expected, now());
+            return m_startTime;
+        }
+
+    private:
+        QmlAVReleaseAcquireAtomic<int64_t> m_startTime = 0;
     };
 
     struct Counters {
@@ -63,7 +72,7 @@ public:
         }
     }
 
-    bool open(const AVStream *avStream, const QmlAVOptions &avOptions);
+    bool open(int streamIndex, const QmlAVOptions &avOptions);
     bool isOpen() const;
     QString name() const;
     const AVStream *stream() const { return m_avStream; }
