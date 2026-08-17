@@ -27,9 +27,9 @@ public:
     operator AVDictionary **() { return m_avDict.get(); }
 
     std::string toString() const {
-        char *buf;
-        av_dict_get_string(*m_avDict.get(), &buf, '=', ',');
-        std::string str(buf);
+        char *buf = nullptr;
+        int ret = av_dict_get_string(*m_avDict.get(), &buf, '=', ',');
+        std::string str(ret < 0 ? "" : buf);
         av_freep(&buf);
         return str;
     }
